@@ -606,8 +606,10 @@ class ParamGraph:
             self.curves += self.figsub.plot(
                                  getattr(self.plotting_list[num], self.xattr),
                                  getattr(self.plotting_list[num], item), label=item)
-        self.figsub.set_xlim(xmax = max(getattr(self.plotting_list[num], self.xattr)+15),
-                             xmin=min(getattr(self.plotting_list[num], self.xattr)-15))
+        
+        xmax = max(getattr(self.plotting_list[num], self.xattr))
+        xmin= min(getattr(self.plotting_list[num], self.xattr))    
+        self.figsub.set_xlim((xmin-(xmax-xmin)*0.02),(xmax+(xmax-xmin)*0.02))
         self.figsub.legend()
         try:
             maxy=max(map(max,[getattr(item, self.yattr[0]) for item in self.plotting_list]))

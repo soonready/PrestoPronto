@@ -35,8 +35,7 @@ import bm29
 import numpy
 import utility as ut
 import bm29_tools as bt
-import Rebin
-import Exapy
+import exapy
 import os
 import ConfigParser
 #import zipfile for zipped files
@@ -44,11 +43,17 @@ import text
 from scipy import interpolate
 from PyMca.specfile import Specfile
 
+import PPset
+import PPXanes
+import PPAvesel
+
+
+
       
 global __verbose__                                                                    
 __verbose__=False#True#
 global __version__
-__version__= "b.0.8.4"
+__version__= "b.0.9.0"
 global inivarst
 inivar=ConfigParser.ConfigParser()
 global num_deriv
@@ -93,9 +98,9 @@ class mymenu():
         
         # display the menu
         genitore.config(menu=self.menubar)
-    def num_deriv(self,x): 
+    def num_deriv(self, x): 
         global num_deriv
-        if x: num_deriv=True
+        if PPset.x: num_deriv=True
         else: num_deriv=False
     def singlefile_on(self):  
         ut.__singlefile__=True
@@ -338,7 +343,6 @@ class Column_Window:
 
     def opens(self):
         global filesel_spectra
-        filesel_spectra=[]
         for item in self.filenames:
             self.array=numpy.loadtxt(fname=item,comments=self._ChaCom.get())
             E=self.array[:,int(self.column_list[0]._position.get())-1]
@@ -351,8 +355,8 @@ class Column_Window:
                 elif self._mode.get()=="fluorescence":Mu=I1/I0
             else: raise ValueError("neither Mu nor I0-I1 defined") 
             
-            filesel_spectra.append(bm29.bm29file([E,Mu]))
-            filesel_spectra[-1].comments=self.read_comment(item)
+            PPset.filesel_spectra.append(bm29.bm29file([E,Mu]))
+            PPset.filesel_spectra[-1].comments=self.read_comment(item)
 
             if self.column_list[3]._check.get():
                 filesel_spectra[-1].I0=self.array[:,int(self.column_list[3]._position.get())-1]
@@ -364,9 +368,9 @@ class Column_Window:
                 filesel_spectra[-1].ref=numpy.log(I1/I2)
             
         pass
-        E=max(numpy.gradient(filesel_spectra[0].Mu))
+        E=max(numpy.gradient(PPset.filesel_spectra[0].Mu))
         dspac=  3.13467 if E<22500 else 1.63702
-        for item in filesel_spectra: item.dspac=dspac
+        for item in PPset.filesel_spectra: item.dspac=dspac
         self.top.destroy()
         del self
       
@@ -420,8 +424,6 @@ class Column_Window_spec(Column_Window):
       
 
 #
-
-
 class Gen_QE():
     def __init__(self, genitore):
       #-----------------------------      Declare      --------------------------------------------------
@@ -1535,1063 +1537,10 @@ class SambaQE():
 
 #########################################################################################################
 ##################################       Avesel     #####################################################
-class Avesel(Rebin.REBIN): 
-    def __init__(self, genitore):
-      #-----------------------------      Declare      --------------------------------------------------
-        self._from_tof= StringVar()              #select
-        self._c_aver = IntVar()            #aver
-        self._aver = IntVar()              #aver
-        self._c_Trun = IntVar()            #Truncate
-        self.before = StringVar()          #Truncate
-        self.after = StringVar()           #Truncate
-        self._c_Rebin = IntVar()
-        self.Edgep = StringVar()           #rebin
-        self.Prep = StringVar()            #rebin
-        self.Postp = StringVar()           #rebin
-        self.Edges = StringVar()           #rebin
-        self.Pres = StringVar()            #rebin
-        self.Posts = StringVar()           #rebin
-        self.labelfiletext = StringVar()   #rebin
-      #-----------------------------      Define       --------------------------------------------------
-        self._from_tof.set("1,2,5-15,23")
-        self._aver.set(1)
-        self.Edgep.set(24350)
-        self.Prep.set(30)
-        self.Postp.set(20)
-        self.Edges.set(.5)
-        self.Pres.set(5)
-        self.Posts.set(.03)
-      #-----------------------------     Browse file   ------------------------------------------------
-        #self.filesel = ut.Browse_file(genitore, "Filenames", 0, All_Column=False)
-        #self.filesel.pulsanteA.configure(command= self.browse_command2)
-        # 'quadro_process'
-      #-----------------------------     Select   and   Truncate      -----------------------------------
-        self.SelTrunc = Frame(genitore)    #,text = "Correction"
-        self.SelTrunc.pack(side =TOP, fill = BOTH, padx =3, pady =10)
-        labelpack =  {"side" : LEFT,  "fill" : BOTH, "anchor" : N,"ipadx" : 5} #,"expand" : YES, "ipady" : 5
-        entrypack = {"side" : LEFT, "padx" : 5, }#"ipady" : 3
-      #-----------------------------     Select        --------------------------------------------------
-        self.process = LabelFrame(self.SelTrunc, text = "Select")    #,text = "Correction"
-        self.process.pack(side = LEFT, fill = BOTH, pady= 3, ipadx = 5, ipady = 3, expand = YES)   #
-        # Si aggiungono alcuni sottoquadri a 'dspacing'
-        self.from_tof = ut.LabelEntry(self.process,  Ltext = " Select spectra  ex. 1,2,5-15,23",
-                                      EtextVar= self._from_tof, Ewith = 20 )#
-        self.from_tof.LabFr.pack(**labelpack)
-        self.from_tof._entry.pack(**entrypack)
-      #-----------------------------     Truncate      -------------------------------------------------
-        self.quadro_Trun = LabelFrame(self.SelTrunc,  text = "Truncate")
-        self.quadro_Trun.pack(side = LEFT, fill = BOTH, pady= 3, ipadx = 5, ipady = 3, expand = YES)   #, expand = YES
-        self.Trun_before = ut.LabelEntry(self.quadro_Trun,  Ltext = "before", EtextVar= self.before, Ewith = 10 )#
-        self.Trun_before.LabFr.pack(**labelpack)
-        self.Trun_before._entry.pack(**entrypack)
-        self.Trun_after = ut.LabelEntry(self.quadro_Trun, Ltext = "after", EtextVar= self.after, Ewith = 10 )
-        self.Trun_after.LabFr.pack(**labelpack)
-        self.Trun_after._entry.pack(**entrypack)
-      #-----------------------------      Rebin        --------------------------------------------------
-        #labelpack =  {"side" : LEFT, "expand" : YES, "fill" : BOTH, "anchor" : N,"ipadx" : 5, "ipady" : 5}
-        #entrypack = {"side" : LEFT, "padx" : 5, "ipady" : 3}
-        self.quadro_Rebin = LabelFrame(genitore,  text = "Rebin")
-        self.quadro_Rebin.pack(side = TOP, expand = YES, fill = X, ipadx = 5, ipady = 3)
-
-        self.quadro_Rebinrange = Frame(self.quadro_Rebin)   # Label   , text = "Range"
-        self.quadro_Rebinrange.pack(side = TOP, fill = X)#, expand = YES, ,ipadx = 5, ipady = 5
-        self.Edgep_LB = ut.LabelEntry(self.quadro_Rebinrange,  Ltext = "Edge position",
-                                   EtextVar= self.Edgep, Ewith = 8, SLtext ="eV" )#
-        self.Edgep_LB.LabFr.pack(**labelpack)  ;   self.Trun_before._entry.pack(**entrypack)
-        self.Prep_LB = ut.LabelEntry(self.quadro_Rebinrange,  Ltext = "Preedge ends  ",
-                                  EtextVar= self.Prep, Ewith = 8, SLtext = "eV bef. Eo" )
-        self.Postp_LB = ut.LabelEntry(self.quadro_Rebinrange,  Ltext = "EXAFS starts",
-                                   EtextVar= self.Postp, Ewith = 8, SLtext = "eV after Eo")
-
-        self.quadro_RebinStep = Frame(self.quadro_Rebin)  #Label    , text = "Step"
-        self.quadro_RebinStep.pack(side = TOP, fill = X)#, expand = YES, fill = BOTH,ipadx = 5, ipady = 5
-        self.Edgep_LB = ut.LabelEntry(self.quadro_RebinStep,  Ltext = "Edge step", EtextVar= self.Edges, Ewith = 8,SLtext ="eV" )#
-        self.Edgep_LB.LabFr.pack(**labelpack)  ;   self.Trun_before._entry.pack(**entrypack)
-        self.Prep_LB = ut.LabelEntry(self.quadro_RebinStep,  Ltext = "Preedge  step", EtextVar= self.Pres, Ewith = 8, SLtext ="eV            " )#
-        self.Postp_LB = ut.LabelEntry(self.quadro_RebinStep,  Ltext = "EXAFS  step", EtextVar= self.Posts, Ewith = 8 , SLtext = u'\xc5-1             ')#
-        self.pulsante_Rebin = Button(self.quadro_Rebin,
-                                      command = self.RebinSparam,
-                                      text = "Eval on Graph",
-                                      background = "violet",
-                                      width = 12,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.pulsante_Rebin.pack(side = TOP, anchor = W)
-      #-----------------------------     Average       --------------------------------------------------
-        self.process1 = Frame(genitore)    #,text = "Correction"
-        self.process1.pack(side = TOP, expand = YES, fill = BOTH, ipadx = 5, ipady = 3)
-        self.quadro_aver = LabelFrame(self.process1, text = "Perform:")
-        Label(self.quadro_aver, text = "  Select,         ").pack(side = LEFT)
-        self.check_aver=Checkbutton(self.quadro_aver, text="Average each" ,variable=self._c_aver )
-        self.check_aver.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1)
-        self.quadro_aver.pack(side = LEFT, expand = YES, fill = BOTH, anchor = W , ipady = 0)
-        self._entry_aver= Entry(self.quadro_aver, width = 3, textvariable=self._aver)
-        self._entry_aver.pack(side = LEFT, ipady = 3,anchor = W )
-        Label(self.quadro_aver, text="files,  ").pack(side = LEFT, ipady = 3, anchor = W , fill = Y)
-        self.check_Trun=Checkbutton(self.quadro_aver, text="Truncate,  " ,variable=self._c_Trun )
-        self.check_Trun.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1)
-        self.check_Rebin=Checkbutton(self.quadro_aver, text="Rebin " ,variable=self._c_Rebin )
-        self.check_Rebin.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1)
-
-      #-----------------------------     Perform       ---------------------------------------------------
-        self.quadro_buttonp1 = Frame(genitore)
-        self.quadro_buttonp1.pack(side = TOP, expand = YES, fill = BOTH,pady = 10,
-                                  ipadx = 5, ipady = 5)
-        self.pulsante_Aver = Button(self.quadro_buttonp1,
-                                      command = self.Perform,
-                                      text = "Perform",
-                                      background = "green",
-                                      width = 8,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.pulsante_Aver.pack(side = LEFT, anchor = W)
-        self.Avesel_PlSa_But=ut.PloteSaveB(self.quadro_buttonp1,ext="reb" , title="Rebin")
-        #self.Avesel_PlSa_But.Button_plot.configure( command = self.plot2)
-
-
-    def RebinSparam(self):
-        global filesel_spectra
-        self.num=0
-        self.top = Toplevel()
-        self.top.title("REBIN PARAMETER")        
-       #--------------------------   Prepare group  --------------------------------------------------
-        dif =lambda x: numpy.argmax(numpy.gradient(x.Mu)/numpy.gradient(x.E))
-        Eo=filesel_spectra[0].E[dif(filesel_spectra[0])]
-        self.Edgep.set(Eo)
-        self.evaluatepar()
-       #--------------------------   Graphic win  --------------------------------------------------
-        self.graphframe = Frame(self.top)        
-        self.graphframe.pack(side = TOP, fill=BOTH, expand=YES)
-        self.grap_win=ut.ParamGraph(self.graphframe, filesel_spectra, "E", ["Mu",])
-        self.grap_win.plot(self.num)        
-        self.grap_win.paramplot(self.get_param(), ["b","g","k","r","b"], 
-                                ["Min","XAN","Eo","EXAFS","Max"])
-        if len(filesel_spectra)>1:
-            self.grap_win.slider.configure(command= self.panor2)
-        #self.grap_win.onmoving=self.onmoving
-        self.grap_win.canvas.mpl_disconnect(self.grap_win.mov_link)
-        self.grap_win.mov_link=self.grap_win.canvas.mpl_connect(
-                                           'motion_notify_event', self.onmoving)
-
-    def evaluatepar(self):
-        Eo=float(eval(self.Edgep.get()))
-        E=filesel_spectra[self.num].E
-        # Evaluate the minimum step around the edge 
-        E=E.compress(numpy.logical_and(E>Eo-2,E<Eo+2))
-        step=numpy.average(numpy.gradient(E))+.05
-        self.Edges.set(round(step,1))        
-            
-
-    def get_param(self):
-        Lim1=float(eval(self.before.get()))
-        Lim2=float(eval(self.after.get()))
-        Eo = float(eval(self.Edgep.get()))
-        predg= float(eval(self.Prep.get()))
-        postedg = float(eval(self.Postp.get()))
-        spec=  filesel_spectra[self.num]
-        return      [Lim1, Eo-predg, Eo, Eo+postedg, Lim2]
-
-
-    def panor2(self,event):
-        self.num=int(event)-1
-        self.grap_win.param=self.get_param()
-        self.evaluatepar()
-        self.grap_win.panor(self.num+1)
-
-
-    def onmoving(self, event):
-        if self.grap_win.press:
-            string_params= [self.before,self.Prep,self.Edgep,self.Postp,self.after]
-            if self.grap_win.param_num==2:
-                string_params[2].set(round(event.xdata,3))
-            elif self.grap_win.param_num==1 or self.grap_win.param_num==3: 
-                if event.xdata==None:pass
-                else:string_params[self.grap_win.param_num].set(abs(round(event.xdata- float(eval(self.Edgep.get())),3)))
-            else:
-                string_params[self.grap_win.param_num].set(abs(round(event.xdata)))
-            self.panor2(self.grap_win.slider.get())
-            return
-        else: return    
-    
-    
-
-
-
-
-    def plot2(self):
-           #start = self._fromf.get()
-           #end = self._tof.get()
-           self.Avesel_PlSa_But.plot()
-           self.Avesel_PlSa_But.graph.clear()
-           #self.Avesel_PlSa_But.graph.plot( self.Avesel_PlSa_But.x_array,
-           #             self.Avesel_PlSa_But.y_array)
-           #if self._c_aver.get():
-           #    E = [filesel_spectra[i].E for i in self.lista_iter]
-           #    Mu= [filesel_spectra[i].Mu for i in self.lista_iter]
-           #    self.Avesel_PlSa_But.graph.plot(E, Mu)
-           #else:
-           #    self.Avesel_PlSa_But.graph.plot([i.E   for i in filesel_spectra[start -1:end]] ,
-           #                                    [i.Mu  for i in filesel_spectra[start -1:end]])
-
-
-
-    def Perform(self):
-        aver = self._aver.get()
-        filesel = ut.string_range(self._from_tof.get())
-        Eo = float(eval(self.Edgep.get()))
-        predg= float(eval(self.Prep.get()))
-        postedg = float(eval(self.Postp.get()))
-        xstep = float(eval(self.Edges.get()))
-        pstep = float(eval(self.Pres.get()))
-        kstep = float(eval(self.Posts.get()))
-        trunbef= float(eval(self.before.get()))
-        trunaft= float(eval(self.after.get()))
-        #print aver , start
-        global spectra
-        global x
-        spectra =[]
-        listcomment=[]
-        comment="#"
-        if self._c_aver.get() and (self._aver.get()>1):
-            comment+= " averaged each {0:4d} spectra,".format(aver)
-            self.lista_iter = range(0,len(filesel),aver)
-            for item in self.lista_iter:
-                list_ave=[filesel_spectra[ii] for ii in filesel[item:item+aver]]                
-                E, Mu  = bt.spectra_average([[i.E,i.Mu]for i in list_ave])
-                spectra.append(bm29.bm29file([E,Mu]))
-                try:
-                    spectra[-1].T1=bt.dat_average([i.T1 for i in filesel_spectra[item:item+aver]])
-                    spectra[-1].T2=bt.dat_average([i.T2 for i in filesel_spectra[item:item+aver]])
-                except: pass
-                try:
-                    spectra[-1].start_time_ep=bt.dat_average([i.start_time_ep for i in filesel_spectra[item:item+aver]])
-                except: pass
-                listcomment.append(filesel_spectra[item].comments)
-        else:
-            for item  in [filesel_spectra[i] for i in filesel]:
-                data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
-                spectra.append(bm29.bm29file(data))
-                try:    spectra[-1].T1=item.T1
-                except: pass
-                try:    spectra[-1].T2=item.T2
-                except: pass
-                try:    spectra[-1].start_time_ep=item.start_time_ep
-                except: pass
-                listcomment.append(item.comments)
-
-        if self._c_Trun.get():
-            comment+= " truncate between {0:5.9f} and{1:5.9f} ,".format(trunbef, trunaft)              
-            for i,item in enumerate(spectra):
-                    data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
-                    data = bt.dat_Truncate(data, trunbef, trunaft)
-                    spectra[i].E, spectra[i].Mu = map(numpy.ravel, numpy.hsplit(data,2))
-                    #spectra[i]=bm29.bm29file(data)
-                    
-        if self._c_Rebin.get():
-            comment+= " rebin with param.{0:5.7f},{1:5.7f},{2:5.7f},{3:5.7f},{4:5.7f},{5:5.7f},".format(Eo, predg, postedg, pstep, xstep, kstep)  
-            for i,item in enumerate(spectra):
-                data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
-                try:
-                   data=bt.rebin(data, 0, Eo, predg, postedg, pstep, xstep, kstep, file='', msgStream=None)
-                   spectra[i]=(bm29.bm29file(data))
-                except bt.RebinError, self.rebinerror:
-                   top = Toplevel()
-                   Label(top, text = "Rebin not performed      " + self.rebinerror.parameter).pack(expand = YES)
-                   break
-        
-        
-        if comment== "#": comment = "#L E  Mu  \n"
-        else: comment = comment[:-1]+"\n" +"#L E  Mu  \n" 
-        for i, item in enumerate(spectra) :
-            listcomment[i][-1]= comment
-            item.comments= listcomment[i]
-        x=range(1,len(spectra)+1)
-        self.Avesel_PlSa_But.x_array= [item.E for item in spectra]
-        self.Avesel_PlSa_But.y_array= [item.Mu for item in spectra]
-        self.Avesel_PlSa_But.comments= [item.comments for item in spectra]
-        
-        print "\n---module average done---\n"       
-        pass
-
-
+#see module PPAvesel
 #########################################################################################################
 ####################################     XANES       ####################################################
-from matplotlib.backends.backend_tkagg import  cursors
-import types
-class XANESparam:
-    def __init__(self, genitore, ini):
-        global spectra
-        self.genitore=genitore
-       #--------------------------   Declare--------------------------------------------------
-        self._Eop= StringVar()
-        self._pr_es= StringVar()
-        self._pr_ee= StringVar()
-        self._po_es= StringVar()
-        self._po_ee= StringVar()
-        self._n_poly= StringVar()
-        self.n_poly=3
-       #--------------------------   Define--------------------------------------------------
-        self.Eop,self.pr_es,self.pr_ee,self.po_es,self.po_ee,self.n_poly =ini
-        self.num=0
-        if ini==[0,0,0,0,0,3]:
-            self._Eop.set("Ifeffit default")
-            self._pr_es.set("start of the spectra")
-            self._pr_ee.set(-50)
-            self._po_es.set(150)
-            self._po_ee.set("end of the spectra")
-            self._n_poly.set(3)
-        else:
-            self._Eop.set(round(ini[0],2))
-            self._pr_es.set(round(ini[1],2))
-            self._pr_ee.set(round(ini[2],2))
-            self._po_es.set(round(ini[3],2))
-            self._po_ee.set(round(ini[4],2))
-            self._n_poly.set(ini[5])            
-       #--------------------------   Params  Entries--------------------------------------------------
-        self.param_win = Frame(genitore)
-        self.param_win.pack(side=LEFT)
-       
-        self.quadro_Eop = LabelFrame(self.param_win, text = "Eo")
-        self.quadro_Eop.pack(side = TOP,  fill = X)
-        self._entry_Eop= Entry(self.quadro_Eop, width = 20, textvariable=self._Eop)
-        self._entry_Eop.pack(side = LEFT, padx = 5, ipady = 3, fill = X)
-
-        self.quadro_pr_es = LabelFrame(self.param_win, text = "pre1")
-        self.quadro_pr_es.pack(side = TOP,  fill = X)
-        self._entry_pr_es= Entry(self.quadro_pr_es, width = 20, textvariable=self._pr_es)
-        self._entry_pr_es.pack(side = LEFT, padx = 5, ipady = 3, fill = X)
-
-        self.quadro_pr_ee = LabelFrame(self.param_win, text = "pre2")
-        self.quadro_pr_ee.pack(side = TOP,  fill = X)
-        self._entry_pr_ee= Entry(self.quadro_pr_ee, width = 20, textvariable=self._pr_ee)
-        self._entry_pr_ee.pack(side = LEFT, padx = 5, ipady = 3, fill = X)
-
-        self.quadro_po_es = LabelFrame(self.param_win, text = "Norm1")
-        self.quadro_po_es.pack(side = TOP,  fill = X)
-        self._entry_po_es= Entry(self.quadro_po_es, width = 20, textvariable=self._po_es)
-        self._entry_po_es.pack(side = LEFT, padx = 5, ipady = 3, fill = X)
-
-        self.quadro_po_ee = LabelFrame(self.param_win, text = "Norm2")
-        self.quadro_po_ee.pack(side = TOP,  fill = X)
-        self._entry_po_ee= Entry(self.quadro_po_ee, width = 20, textvariable=self._po_ee)
-        self._entry_po_ee.pack(side = LEFT, padx = 5, ipady = 3, fill = X)
-        
-        self.quadro_n_poly = LabelFrame(self.param_win, text = "n_poly")
-        self.quadro_n_poly.pack(side = TOP,  fill = X)
-        self._entry_n_poly= Entry(self.quadro_n_poly, width = 20, textvariable=self._n_poly)
-        self._entry_n_poly.pack(side = LEFT, padx = 5, ipady = 3, fill = X)        
-
-        self.rerefresh = Button(self.param_win,
-                                     command = self.refresh,#lambda x= self.num: self.refresh(x),
-                                      text = "refresh graph",
-                                      background = "violet",
-                                      width = 20,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.rerefresh.pack(side = TOP, anchor = W, padx = 5, pady = 5)
-
-        self.resave = Button(self.param_win,
-                                      command = self.saveparam,
-                                      text = "Save new paramerter",
-                                      background = "green",
-                                      width = 20,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.resave.pack(side = TOP, anchor = W, padx = 5, pady = 5)
-        
-       #--------------------------   Graphic win  --------------------------------------------------
-        self.graphframe = Frame(genitore)        
-        self.graphframe.pack(side = LEFT, fill=BOTH, expand=YES)
-        self.grap_win=ut.ParamGraph(self.graphframe, spectra, "E", ["Mu", "pre_edge", "post_edge"])
-        self.refresh()
-        #self.onmoving = types.MethodType(self.onmoving, self.grap_win, ut.ParamGraph)
-        #setattr(self.grap_win, "onmoving", self.onmoving)
-        self.grap_win.canvas.mpl_disconnect(self.grap_win.mov_link)                                        # new pick release link
-        self.grap_win.mov_link=self.grap_win.canvas.mpl_connect('motion_notify_event', self.onmoving)      # new pick release link
-        self.grap_win.canvas.mpl_disconnect(self.grap_win.pick)                                            # new pick release link
-        self.grap_win.pick=self.grap_win.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
-        self.grap_win.canvas.mpl_disconnect(self.grap_win.release)                                         # new pick release link
-        self.grap_win.release=self.grap_win.canvas.mpl_connect('button_release_event', self.onrelease)
-        self.press=False        
-        self.grap_win.slider.configure(command= self.panor2)                                               # new pick release link
-        genitore.wait_window()    
-    
-    def onpick(self,event_p):
-        #print "ppppppppppppppppppppppp"
-        if not(event_p.artist in self.grap_win.parmlines): 
-            return True
-        else:
-            cursors.POINTER=0
-            self.grap_win.param_num= self.grap_win.parmlines.index(event_p.artist)
-            self.grap_win.mov_link=self.grap_win.canvas.mpl_connect('motion_notify_event', self.onmoving)
-            self.press=True
-            return True
-        
-    def onrelease(self,event_r):
-        cursors.POINTER=1
-        self.press=False
-        #try:
-        #self.grap_win.canvas.mpl_disconnect(self.grap_win.mov_link)
-        #print "disconnect"
-        #except: pass 
-        
-       #--------------------------   Function  -----------------------------------------------------        
-
-
-    def onmoving(self, event):
-        "when a parameter is move graphically"
-        if not(self.press): return
-        string_params= [self._pr_es,self._pr_ee,self._Eop, self._po_es, self._po_ee]
-        #print "pippo" , self.grap_win.param_num
-        if self.grap_win.param_num==2:
-            string_params[2].set(round(event.xdata,2))
-        else:
-            if event.xdata==None:pass
-            else:string_params[self.grap_win.param_num].set(round(event.xdata- spectra[self.num].Eo,2))
-        self.panor2(self.num)
-        
-    def preposted(self):
-        """ take parameter and perform calc"""
-        try: self.saveparam(destroy=False)
-        except:
-            print "self.saveparam(destroy=False) fails"
-            raise ValueError()        
-            
-        if spectra!=[]:
-            spectra[self.num].XANES_Norm(self.Eop, self.pr_es, self.pr_ee, 
-                                  self.po_es , self.po_ee, n_postpoly= self.n_poly)
-            spectra[self.num].pre_edge= spectra[self.num].preedge_poly(spectra[self.num].E) 
-            spectra[self.num].post_edge= spectra[self.num].postedge_poly(spectra[self.num].E)       
-            
-    def refresh(self):
-        #"refresh picture when parameter are change in the textbox"
-        try:
-            self.grap_win.figsub.clear()
-            self.preposted()
-            self.grap_win.plot(self.num)
-            self.grap_win.paramplot(self.get_param(), ["g"]*2+["k"]+["r"]*2,["pre1","pre2", "Eo", "norm1","norm2" ])
-            self.panor2(self.num)
-        except :
-            self.grap_win.figsub.clear()
-            dif =lambda x: numpy.argmax(numpy.gradient(x.Mu)/numpy.gradient(x.E))
-            spectra[self.num].Eo=spectra[self.num].E[dif(spectra[self.num])]     # find the edge
-            if min(spectra[self.num].E)> self.pr_ee+spectra[self.num].Eo:        # case in wich the two preedge are inverted
-                self._pr_ee.set(-(spectra[self.num].Eo-min(spectra[self.num].E))/2)
-                self.refresh()
-                return
-            if max(spectra[self.num].E)< self.po_es+spectra[self.num].Eo:        # case in wich the two post edge are inverted
-                self._po_es.set((max(spectra[self.num].E)-spectra[self.num].Eo)/2)
-                self.refresh()
-                return    
-            self.grap_win.plot(self.num)
-            pippo=[min(spectra[self.num].E), self.pr_ee+spectra[self.num].Eo ,
-                    spectra[self.num].Eo, spectra[self.num].Eo+self.po_es ,
-                    max(spectra[self.num].E)]
-            self.grap_win.paramplot(pippo, ["g"]*2+["k"]+["r"]*2, ["pre1","pre2", "Eo", "norm1","norm2"])    #
-            print "\n---wrong initial parameter---\n"     
-            
-    def panor2(self,event):
-        "when the slider is moved"
-        self.num=int(event)
-        try:
-            self.preposted()
-            self.grap_win.param=self.get_param()
-            self.grap_win.panor(self.num)
-        except: 
-            print "still wrong"
-            
-            
-    def get_param(self):
-        spec= spectra[self.num]
-        Eo= spec.Eo
-        return      [spec.pr_es+Eo, spec.pr_ee+Eo , Eo, Eo+spec.po_es ,Eo+spec.po_ee]            
-            
-    
-    def saveparam(self, destroy=True):
-        ##########################################################################
-        def error_message(Name,param,comp,string):
-            if comp==string: param=0
-            else: print "\nPlease write a numerical value for "+ Name +"\n" +  \
-                             "for Ifeffit default write 0 or \""+string+"\" \n"
-        ##########################################################################
-        try:    self.Eop = float(eval(self._Eop.get()))
-        except SyntaxError:error_message("E0", self.Eop ,                 \
-                                         self._Eop.get(),"Ifeffit default")
-        try:    self.pr_es = float(eval(self._pr_es.get()))
-        except SyntaxError: error_message("pre edge start",self.pr_es,     \
-                                          self._pr_es.get(),"start of the spectra")
-        try:    self.pr_ee = float(eval(self._pr_ee.get()))
-        except SyntaxError: error_message("pre edge end",self.pr_ee,      \
-                                          self._pr_ee.get(),"0")
-        try: self.po_es  = float(eval(self._po_es.get()))
-        except SyntaxError: error_message("post edge start",self.po_es,   \
-                                          self._po_es.get(),"0")
-        try:  self.po_ee = float(eval(self._po_ee.get()))
-        except SyntaxError: error_message("post edge end", self.po_ee,    \
-                                          self._po_ee.get(),"end of the spectra")
-        try:  self.n_poly = float(eval(self._n_poly.get()))
-        except SyntaxError: error_message("polyn degree", self.n_poly,    \
-                                          self._n_poly.get(),"3")
-        if destroy:
-            self.genitore.destroy()
-            #self.param_win.destroy()
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-class DERIVparam_c:
-    """
-    class for calculation of numerical derivative
-    """
-    def __init__(self, genitore, ini):
-        global spectra
-      #--------------------------   Declare--------------------------------------------------
-        self._smoot      = StringVar()
-        self._interpolation = StringVar()
-        self._smoot_repeat = StringVar()
-      #--------------------------   Define--------------------------------------------------
-        self.genitore=genitore
-        self.num_der=1
-        self.smoot,self.interpolation,self.smoot_repeat, self.lim1,self.lim2=ini
-        self._smoot_repeat.set(self.smoot_repeat)
-        self._smoot.set(self.smoot)
-        if self.interpolation==0:self._interpolation.set("experimental sampling")             
-        else:self._interpolation.set(self.interpolation)
-      #--------------------------   Params  Entries--------------------------------------------------
-        self.param_win_der = Frame(self.genitore)
-        self.param_win_der.pack(side=LEFT)
-        self.quadro_spin_smoot = LabelFrame(self.param_win_der, text = "smoot win int from 0 to ..")
-        self.quadro_spin_smoot.pack(side = TOP,  fill = X)
-        self.spin_smoot = Spinbox(self.quadro_spin_smoot, from_ = 0, to = 10,
-                                 command= self.refresh_der, 
-                                 textvariable= self._smoot,
-                                 state= "readonly",
-                                 width = 3)
-        self.spin_smoot.pack(side = LEFT ,anchor = W, padx = 5, ipadx = 2, ipady = 3)
-        
-        self.quadro_spin_smootr = LabelFrame(self.param_win_der, text = "smoot rep. from 0 to ..")
-        self.quadro_spin_smootr.pack(side = TOP,  fill = X)
-        self.spin_smootr = Spinbox(self.quadro_spin_smootr, from_ = 0, to = 10,
-                                 command= self.refresh_der, 
-                                 textvariable= self._smoot_repeat,
-                                 state= "readonly",
-                                 width = 3)
-        self.spin_smootr.pack(side = LEFT ,anchor = W, padx = 5, ipadx = 2, ipady = 3)        
-        #self.spin_smoot = Entry(self.quadro_spin_smoot, 
-        #                          textvariable= self._smoot,
-        #                          width = 10)
-        #self.spin_smoot.pack(side = LEFT ,anchor = W, padx = 5, ipadx = 2, ipady = 3)
-
-        self.quadro_inter = LabelFrame(self.param_win_der, text = "interpolation")
-        self.quadro_inter.pack(side = TOP,  fill = X)
-        
-        self._spin_inter= Spinbox(self.quadro_inter, from_ = 0.0, to = 1.0, increment=0.1,
-                                command= self.refresh_der,
-                                textvariable=self._interpolation,
-                                state= "readonly",
-                                width = 5)
-        self._spin_inter.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand=Y)        
-        
-        
-        #self._entry_inter= Entry(self.quadro_inter, width = 20, textvariable=self._interpolation)
-        #self._entry_inter.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand=Y)
-        Label(self.quadro_inter, text = "eV", justify = LEFT).pack(side = LEFT, anchor = W)
-
-        self.topsave = Button(self.param_win_der,
-                                      command = self.saveparam_deriv,
-                                      text = "Save new paramerter",
-                                      background = "green",
-                                      width = 20,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.topsave.pack(side = TOP, anchor = W, padx = 5, pady = 5)
-      #--------------------------   Graph --------------------------------------------------        
-        self.graphframe_der = Frame(self.genitore)        
-        self.graphframe_der.pack(side = LEFT, fill=BOTH)
-        self.grap_win_der=ut.ParamGraph(self.graphframe_der, spectra, "x_int", ["deriv"])
-        self.refresh_der()
-        self.grap_win_der.slider.configure(command= self.panor2_der)
-        
-      #--------------------------   Graph -------------------------------------------------- 
-        genitore.wait_window()   
-      #--------------------------   functions --------------------------------------------------       
-      
-    def refresh_der(self):
-        self.grap_win_der.figsub.clear()
-        self.saveparam_deriv(destroy=False)
-        self.calc()
-        self.grap_win_der.plot(self.num_der)
-        self.panor2_der(self.num_der)
-      
-    def calc(self):
-        """calculate derivative and interpoolated x"""
-        if spectra!=[]:
-            spectra[self.num_der].bm29Num_der(window_len=self.smoot, step=self.interpolation,
-                                              L1=self.lim1,L2=self.lim2, repeat=self.smoot_repeat)
-            spectra[self.num_der].deriv=spectra[self.num_der].NumDer.deriv
-            spectra[self.num_der].x_int=spectra[self.num_der].NumDer.x_int          
-    
-    def panor2_der(self,event):
-        self.num_der=int(event)
-        self.saveparam_deriv(destroy=False)
-        self.calc()           
-        self.grap_win_der.panor(self.num_der)
-
-    def saveparam_deriv(self, destroy=True):
-        ##########################################################################
-        def error_message(Name,param,comp,string):
-            if comp==string: param=0
-            else: print "\nPlease write a numerical value for "+ Name +"\n" +  \
-                             "for Ifeffit default write 0 or \""+string+"\" \n"
-        ##########################################################################
-        self.smoot = int(self._smoot.get())
-        self.smoot_repeat=int(self._smoot_repeat.get())
-        try:  self.interpolation = float(self._interpolation.get())          
-        except ValueError: error_message("sampling", self._interpolation,     \
-                              self._interpolation.get(),"experimental sampling")
-        #else: raise SyntaxError("the value acepted are numerical or \"experimental sampling\"") 
-        if destroy:
-            self.genitore.destroy()
-
-
-
-
-
-class DERIVparam_spline(DERIVparam_c):
-    def __init__(self, genitore, ini):
-        global spectra
-      #--------------------------   Declare--------------------------------------------------
-        self._smoot      = StringVar()
-        self._interpolation = StringVar()
-      #--------------------------   Define--------------------------------------------------
-        self.genitore=genitore
-        self.num_der=0
-        self.smoot,self.interpolation, self.lim1,self.lim2=ini
-        self._smoot.set(self.smoot)
-        if self.interpolation==0:self._interpolation.set("experimental sampling")             
-        else:self._interpolation.set(self.interpolation)
-      #--------------------------   Params  Entries--------------------------------------------------
-        self.param_win_der = Frame(self.genitore)
-        self.param_win_der.pack(side=LEFT)
-        self.quadro_spin_smoot = LabelFrame(self.param_win_der, text = "smoot float from 0 to 1%")
-        self.quadro_spin_smoot.pack(side = TOP,  fill = X)
-        self.spin_smoot = Entry(self.quadro_spin_smoot, 
-                                  textvariable= self._smoot,
-                                  width = 10)
-        self.spin_smoot.pack(side = LEFT ,anchor = W, padx = 5, ipadx = 2, ipady = 3)
-
-        self.quadro_inter = LabelFrame(self.param_win_der, text = "interpolation")
-        self.quadro_inter.pack(side = TOP,  fill = X)
-        
-        self._spin_inter= Spinbox(self.quadro_inter, from_ = 0.0, to = 1.0, increment=0.1,
-                                command= lambda x=self.num_der:  self.panor2_der(x),
-                                textvariable=self._interpolation,
-                                state= "readonly",
-                                width = 5)
-        self._spin_inter.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand=Y)        
-        
-        
-
-        Label(self.quadro_inter, text = "eV", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.toprefr = Button(self.param_win_der,
-                                      command = self.refresh_der,
-                                      text = "refresh",
-                                      background = "violet",
-                                      width = 20,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.toprefr.pack(side = TOP, anchor = W, padx = 5, pady = 5)
-        self.topsave = Button(self.param_win_der,
-                                      command = self.saveparam_deriv,
-                                      text = "Save new paramerter",
-                                      background = "green",
-                                      width = 20,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.topsave.pack(side = TOP, anchor = W, padx = 5, pady = 5)
-      #--------------------------   Graph --------------------------------------------------        
-        self.graphframe_der = Frame(self.genitore)        
-        self.graphframe_der.pack(side = LEFT, fill=BOTH)
-        self.grap_win_der=ut.ParamGraph(self.graphframe_der, spectra, "x_int", ["deriv"])
-        self.refresh_der()
-        self.grap_win_der.slider.configure(command= self.panor2_der)
-        
-      #--------------------------   Graph -------------------------------------------------- 
-        genitore.wait_window()   
-      #--------------------------   functions --------------------------------------------------       
-      
-      
-    def calc(self):
-        """calculate derivative and interpoolated x"""
-        if self.interpolation !=0:
-            self.x_deriv=numpy.arange(self.lim1,self.lim2,self.interpolation)
-        else:    
-            self.x_deriv=bt.dat_Truncate(spectra[0].E, self.lim1, self.lim2)            
-        if spectra!=[]:
-            spectra[self.num_der].bm29derE(sampling=self.x_deriv, L1=self.lim1,L2=self.lim2, s=self.smoot/100) 
-            spectra[self.num_der].deriv=spectra[self.num_der].E_MuFp
-            spectra[self.num_der].x_int=self.x_deriv          
-    
-
-    def saveparam_deriv(self, destroy=True):
-        ##########################################################################
-        def error_message(Name,param,comp,string):
-            if comp==string: param=0
-            else: print "\nPlease write a numerical value for "+ Name +"\n" +  \
-                             "for Ifeffit default write 0 or \""+string+"\" \n"
-        ##########################################################################
-        self.smoot = float(self._smoot.get())
-        try:  self.interpolation = float(self._interpolation.get())          
-        except ValueError: error_message("sampling", self._interpolation,     \
-                              self._interpolation.get(),"experimental sampling")
-        #else: raise SyntaxError("the value acepted are numerical or \"experimental sampling\"") 
-        if destroy:
-            self.genitore.destroy()
-
-
-
-
-
-
-
-
-
-#    
-class XANES():
-    def __init__(self, genitore):
-      #--------------declare----------------------
-        self._deriv_end   = StringVar()
-        self._deriv_start = StringVar()
-        self.smoot=0
-        self.interpolation =0
-        if num_deriv: 
-            self.smoot_repeat=0
-            self.smoot=1
-        self._TCW_start = StringVar()
-        self._TCW_end   = StringVar()
-        self._INTxan_start = StringVar()
-        self._INTxan_end   = StringVar()
-        self._check_deriv=IntVar()
-        self._check_xan = IntVar()
-        self._check_TCW = IntVar()
-        self._check_INT = IntVar()
-        self._xflatten= IntVar()
-        self._xpreedge= IntVar()
-        self._xnormalization= IntVar()        
-        self.Eop  =    0
-        self.pr_es=    0
-        self.pr_ee=    0
-        self.po_es=    0
-        self.po_ee=    0
-        self.n_poly =  3
-        #--------------set---------------------------------
-        self._xflatten.set(1)
-        self._xpreedge.set(1)
-        self._xnormalization.set(1)       
-        self._check_xan.set(1)   
-        self._check_deriv.set(1)         
-
-
-        #------------------------------------------------------
-      #----------------Quadro Derivative-------------------------------------
-        self.quadro_derivative = LabelFrame(genitore, text = "XANES Derivative")    #,text = "Correction"
-        self.quadro_derivative.pack(side = TOP,  fill = X, pady= 3, ipadx = 5, ipady = 3)
-
-        self.derivfrom = LabelFrame(self.quadro_derivative, text = "from")
-        self.derivfrom.pack(side = LEFT,  fill = X, ipady=2, anchor = W, padx=2, expand =Y)
-        self._entry_derivfrom= Entry(self.derivfrom, width = 7, textvariable=self._deriv_start)
-        self._entry_derivfrom.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.derivfrom, text = "eV", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.derivto = LabelFrame(self.quadro_derivative, text = "to ")
-        self.derivto.pack(side = LEFT,  fill = X, ipady=2, anchor = W, padx=2, expand =Y) #, expand = YES
-        self._entry_derivto= Entry(self.derivto, width = 7, textvariable=self._deriv_end)
-        self._entry_derivto.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.derivto, text = "eV", justify = LEFT).pack(side = LEFT, anchor = W)
-        #Frame(self.quadro_derivative).pack(side = LEFT,expand =Y)
-        self.button_derivative_default = Button(self.quadro_derivative,
-                                      command = self.DERIVparam,
-                                      text = "smoot&interp",
-                                      background = "violet",
-                                      width = 10,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.button_derivative_default.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
-        self.derivate_PlSa_But=ut.PloteSaveB(self.quadro_derivative, [],
-                                                             [],
-                                                             ext="Der" ,comment= None, title="DERIVATIVE")
-
-      #----------------Quadro Max Derivative-------------------------------------
-        self.quadro_Max_Derivative = Frame(genitore)    #,text = "Correction"
-        self.quadro_Max_Derivative.pack(side = TOP,  fill = X)
-        self.quadro_Max_Derivative1 = LabelFrame(self.quadro_Max_Derivative, text = "Derivate Max")    #,text = "Correctio
-        self.quadro_Max_Derivative1.pack(side = LEFT,  fill = X, expand =Y)
-        self.quadro_Max_Derivative2 = Frame(self.quadro_Max_Derivative1)
-        self.quadro_Max_Derivative2.pack(side = LEFT, anchor = W, fill=X, expand =Y)
-        self.Max_PlSa_But=ut.PloteSaveB(self.quadro_Max_Derivative2, [x], [],
-                                                        ext=None ,comment= None, title="Iff Eo")
-      #----------------QuadroXan-------------------------------------
-        self.quadro_xanes = LabelFrame(genitore, text = "XANES Normalization")    #,text = "Correction"
-        self.quadro_xanes.pack(side = TOP,  fill = X, pady= 3, ipadx = 5, ipady = 3)
-        Checkbutton(self.quadro_xanes, text="Pre_edge" ,variable=self._xpreedge ).pack(
-                  side = LEFT, expand = YES,  fill = BOTH ,anchor = N,ipadx = 1, ipady = 1)
-        Checkbutton(self.quadro_xanes, text="Norm." ,variable=self._xnormalization ).pack(
-                      side = LEFT, expand = YES,  fill = BOTH ,anchor = N,ipadx = 1, ipady = 1)   
-        self.check_flat=Checkbutton(self.quadro_xanes, text="Flatten" ,variable=self._xflatten )
-        self.check_flat.pack(side = LEFT, expand = YES,  fill = BOTH ,anchor = N,ipadx = 1, ipady = 1)
-     
-        self.button_xanes_default = Button(self.quadro_xanes,
-                                      command = self.XANESparam,
-                                      text = "XANES param.",
-                                      background = "violet",
-                                      width = 10,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.button_xanes_default.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
-        #ATTENZIONE
-        self.Xanes_PlSa_But=ut.PloteSaveB(self.quadro_xanes, [],
-                                                             [],
-                                                             ext="Nor" ,comment= None, title="XANES")
-      #--------------------------------------iffeffit---------------------------------------------------
-        self.quadro_Iffefit = Frame(genitore)    #,text = "Correction"
-        self.quadro_Iffefit.pack(side = TOP,  fill = X)
-        self.quadro_Eo = LabelFrame(self.quadro_Iffefit, text = "Ifeffit() Eo")    #,text = "Correction"
-        self.quadro_Eo.pack(side = LEFT,  fill = X, expand =Y)
-        self.quadro_Eo1 = Frame(self.quadro_Eo)
-        self.quadro_Eo1.pack(side = LEFT, anchor = W, fill=X, expand =Y)
-        #ATTENZIONE
-        self.Eo_PlSa_But=ut.PloteSaveB(self.quadro_Eo1, [], [],
-                                                        ext=None ,comment= None, title="Iff Eo")
-        self.quadro_Ej = LabelFrame(self.quadro_Iffefit, text = "Ifeffit() Ej")    #,text = "Correction"
-        self.quadro_Ej.pack(side = LEFT,  fill = X, expand =Y)
-        self.quadro_Ej1 = Frame(self.quadro_Ej)
-        self.quadro_Ej1.pack(side = LEFT, anchor = W, fill=X, expand =Y)
-        self.Ej_PlSa_But=ut.PloteSaveB(self.quadro_Ej, [], [],
-                                                       ext=None ,comment= None, title="Iff Ej")
-      #----------------------------------------TC Weng Eo---------------------------------------------
-        self.quadro_TCWxan = LabelFrame(genitore, text = "TC Weng Eo")    #,text = "Correction"
-        self.quadro_TCWxan.pack(side = TOP,  fill = X, pady= 3, ipadx = 6, ipady = 3)
-        self.TCWfrom = LabelFrame(self.quadro_TCWxan, text = "from")
-        self.TCWfrom.pack(side = LEFT, expand = YES, fill = BOTH, anchor = W, ipady = 5)
-        self._entry_TCWfrom= Entry(self.TCWfrom, width = 7, textvariable=self._TCW_start)
-        self._entry_TCWfrom.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.TCWfrom, text = "eV    ", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.TCWto = LabelFrame(self.quadro_TCWxan, text = "to ")
-        self.TCWto.pack(side = LEFT, expand = YES, fill = BOTH, anchor = W, ipady = 5) #, expand = YES
-        self._entry_TCWto= Entry(self.TCWto, width = 7, textvariable=self._TCW_end)
-        self._entry_TCWto.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.TCWto, text = "eV    ", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.TCWxan_PlSa_But=ut.PloteSaveB(self.quadro_TCWxan, [x], [],
-                                                                ext=None ,comment= None, title="TCW")
-      #------------------------------------Integralof Nor. XANES
-        self.quadro_INTxan = LabelFrame(genitore, text = "Integralof Nor. XANES")    #,text = "Correction"
-        self.quadro_INTxan.pack(side = TOP,  fill = X, pady= 3, ipadx = 5, ipady = 3)
-        self.INTfrom = LabelFrame(self.quadro_INTxan, text = "from")
-        self.INTfrom.pack(side = LEFT, expand = YES, fill = BOTH, anchor = W, ipady = 5)
-        self._entry_INTfrom= Entry(self.INTfrom, width = 7, textvariable=self._INTxan_start)
-        self._entry_INTfrom.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.INTfrom, text = "eV    ", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.INTto = LabelFrame(self.quadro_INTxan, text = "to ")
-        self.INTto.pack(side = LEFT, expand = YES, fill = BOTH, anchor = W, ipady = 5) #, expand = YES
-        self._entry_INTto= Entry(self.INTto, width = 7, textvariable=self._INTxan_end)
-        self._entry_INTto.pack(side = LEFT, padx = 5, ipady = 3, fill = X, expand = YES)
-        Label(self.INTto, text = "eV    ", justify = LEFT).pack(side = LEFT, anchor = W)
-        self.quadro_INTxan2 = Frame(self.quadro_INTxan)
-        self.quadro_INTxan2.pack(side = TOP, fill = X)
-        self.INTxan_PlSa_But=ut.PloteSaveB(self.quadro_INTxan, [x], [],
-                                            ext=None ,comment= None, title="Integral")
-      #--------------------------------------Perform---------------------------------------------------
-        self.quadro_perform = LabelFrame(genitore)    #,text = "Correction"
-        self.quadro_perform.pack(side = BOTTOM,  fill = X, expand =YES)
-        self.button_xan_per = Button(self.quadro_perform,
-                                      command = self.Perform,
-                                      text = "Perform" ,
-                                      background = "green",
-                                      width = 10,
-                                      padx = "3m",
-                                      pady = "2m")
-        self.button_xan_per.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
-        self.check_deriv=Checkbutton(self.quadro_perform, text="Derivative" ,variable=self._check_deriv )
-        self.check_deriv.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1, padx = 5)
-        self.check_xan=Checkbutton(self.quadro_perform, text="XanNorm" ,variable=self._check_xan )
-        self.check_xan.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1, padx = 5)
-        self.check_TCW=Checkbutton(self.quadro_perform, text="TCW_Eo"    ,variable=self._check_TCW)#, state= DISABLED)
-        self.check_TCW.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1, padx = 5)
-        self.check_INT=Checkbutton(self.quadro_perform, text="Xan_Int" ,variable=self._check_INT )
-        self.check_INT.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1, padx = 5)
-      #---------------------------------Function----------------------------------------
-    def XANESparam(self):
-        if hasattr(self, "topX"): return
-        ini=[self.Eop,self.pr_es,self.pr_ee,self.po_es,self.po_ee,self.n_poly]
-        self.topX = Toplevel()
-        self.topX.title("XANES PARAMETER") 
-        self.XAN_par=XANESparam(self.topX,ini)
-        self.pr_es, self.pr_ee, self.Eop, self.po_es, self.po_ee = self.XAN_par.get_param()
-        self.pr_es, self.pr_ee= self.pr_es-self.Eop, self.pr_ee-self.Eop
-        self.po_es, self.po_ee=self.po_es-self.Eop, self.po_ee-self.Eop
-        self.n_poly =self.XAN_par.n_poly
-        del self.XAN_par
-        del self.topX
-
-
-    def DERIVparam(self):
-        if hasattr(self, "top_der"): 
-            print hasattr(self, "top_der"),"\n"
-            return
-        self.top_der = Toplevel()
-        self.top_der.title("smoot and interpolation parameter") 
-        if num_deriv:
-            ini=[self.smoot,self.interpolation ,self.smoot_repeat ,float(self._deriv_start.get()),float(self._deriv_end.get())]
-            self.Der_param=DERIVparam_c(self.top_der,ini)
-            self.smoot,self.interpolation,self.smoot_repeat=self.Der_param.smoot ,self.Der_param.interpolation,self.Der_param.smoot_repeat
-        else:
-            ini=[self.smoot,self.interpolation ,float(self._deriv_start.get()),float(self._deriv_end.get())]
-            self.Der_param=DERIVparam_spline(self.top_der,ini)
-            self.smoot,self.interpolation=self.Der_param.smoot ,self.Der_param.interpolation            
-        del self.Der_param
-        del self.top_der
-        
-        
-    def Perform(self):                     
-        if self._check_deriv.get():  
-            print "\n ---Derivative Calculation---" , num_deriv
-            if num_deriv:    
-                for item in spectra:
-                    if __verbose__: print "Xanes derivative"
-                    item.bm29Num_der(window_len=self.smoot, step=self.interpolation,
-                                     L1=float(self._deriv_start.get()),L2=float(self._deriv_end.get()),repeat=self.smoot_repeat)
-                self.derivate_PlSa_But.x_array= [item.NumDer.x_int for item in spectra]
-                self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in spectra]
-                self.derivate_PlSa_But.comments= [item.comments[:-1] for item in spectra]
-            else:    
-                if self.interpolation !=0:
-                    self.x_deriv=numpy.arange(float(self._deriv_start.get()), \
-                                           float(self._deriv_end.get()),  \
-                                           self.interpolation)
-                else:
-                    self.x_deriv=bt.dat_Truncate(spectra[0].E, \
-                                                   float(self._deriv_start.get()), \
-                                                   float(self._deriv_end.get()))
-                for item in spectra:
-                    if __verbose__: print "Xanes derivative"
-                    item.bm29derE(sampling=self.x_deriv, L1=float(self._deriv_start.get()),\
-                                  L2=float(self._deriv_end.get()), s=self.smoot/100) 
-                self.derivate_PlSa_But.x_array= [self.x_deriv for item in spectra]
-                self.derivate_PlSa_But.y_array= [item.E_MuFp for item in spectra]
-                self.derivate_PlSa_But.comments= [item.comments[:-1] for item in spectra]                    
-                    
-            for item in self.Xanes_PlSa_But.comments: 
-                c1 ="# Derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
-                item.append(c1)
-                if num_deriv:
-                    c1 = "# Num. derivative calc.  with smoot= %1.8f ,interpolation= %1.4f, repeated444= %2d\n" %(
-                                                self.smoot, self.interpolation ,self.smoot_repeat)
-                else:
-                    c1 = "# Spl derivative  calc.  with smoot= %1.8f ,interpolation= %1.4f\n" %(
-                                                self.smoot, self.interpolation)
-                item.append(c1)
-                item.append("#L E  Derivate_smot"+str(self.smoot)+"\n")    
-            #-----------------Max derivate  ---------------------             
-            self.Max_PlSa_But.x_array= [x]
-            self.Max_PlSa_But.comments=[]                                 
-            self.Max_PlSa_But.comments.append(spectra[0].comments[:-3])
-            c1 ="# Max derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
-            self.Max_PlSa_But.comments[0].append(c1)
-            if num_deriv: 
-                c1 = "# Max derivative calc.  with smoot= %1.8f ,interpolation= %1.4f, repeated= %1.4f\n" %(
-                                                self.smoot, self.interpolation,self.smoot_repeat)
-            self.Max_PlSa_But.comments[0].append(c1)
-            self.Max_PlSa_But.comments[0].append(spectra[0].comments[-3])
-            self.Max_PlSa_But.comments[0].append(spectra[0].comments[-2])
-            self.Max_PlSa_But.comments[0].append( "#L  "+ xlabel+ "   Derivate_Max\n")
-            for item in spectra:
-                self.Max_PlSa_But.y_array= [[item.NumDer.x_int[numpy.argmax(item.NumDer.deriv)] for item in spectra]]        
-        if self._check_xan.get():
-            print "\n ---XANES Normalization---"            
-            for item in spectra:
-                if __verbose__: print "Xanes norm"
-                item.XANES_Norm(self.Eop, self.pr_es, self.pr_ee, self.po_es , self.po_ee,
-                                self._xflatten.get(), n_postpoly= self.n_poly,
-                                operation={"p":self._xpreedge.get(),"n":self._xnormalization.get()})
-                if __verbose__: print "Xanes norm done"
-            #self._check_xan.set(0)
-            self._deriv_start.set(round(spectra[0].Eo -50, 2))
-            self._deriv_end.set(round(spectra[0].Eo +80, 2))            
-            self._TCW_start.set(round(spectra[0].Eo -50, 2))
-            self._TCW_end.set(round(spectra[0].Eo +80, 2))
-            self._INTxan_start.set(round(spectra[0].Eo -50, 2))
-            self._INTxan_end.set(round(spectra[0].Eo +80, 2))
-            #self.check_INT.configure(state = ACTIVE)
-            #self.check_TCW.configure(state = ACTIVE)
-            self.Xanes_PlSa_But.x_array= [item.E for item in spectra]
-            self.Xanes_PlSa_But.y_array= [item.Nor for item in spectra]
-            self.Xanes_PlSa_But.comments= [item.comments[:-1] for item in spectra]
-            for item in self.Xanes_PlSa_But.comments: item.append("#L E  Nor\n")
-            #-----------------iff e0---------------------
-            self.Eo_PlSa_But.x_array= [x]
-            self.Eo_PlSa_But.comments=[]
-            self.Eo_PlSa_But.comments.append(spectra[0].comments[:-3])
-            c1 ="# Eo Ifeffit calc. with E0= "+ str(self.Eop)+",pre1= "+ str(self.pr_es) +", pre2= "+str(self.pr_ee)+"\n"
-            self.Eo_PlSa_But.comments[0].append(c1)
-            c1 = "# Eo Ifeffit calc. with norm1= "+str(self.po_es)+",norm2= "+str(self.po_ee)+", flatted= "+str(self._xflatten.get() and True or False)
-            self.Eo_PlSa_But.comments[0].append(c1)
-            self.Eo_PlSa_But.comments[0].append(spectra[0].comments[-3])
-            self.Eo_PlSa_But.comments[0].append(spectra[0].comments[-2])
-            self.Eo_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  iff_Eo\n")
-            self.Eo_PlSa_But.y_array= [[item.Eo for item in spectra]]        
-            #-----------------iff ej---------------------
-            self.Ej_PlSa_But.x_array= [x]
-            self.Ej_PlSa_But.comments=[]
-            self.Ej_PlSa_But.comments.append(spectra[0].comments[:-3])
-            c1 ="# Eo Ifeffit calc. with E0= "+ str(self.Eop)+",pre1= "+ str(self.pr_es) +", pre2= "+str(self.pr_ee)+"\n"
-            self.Ej_PlSa_But.comments[0].append(c1)
-            c1 = "# Eo Ifeffit calc. with norm1= "+str(self.po_es)+",norm2= "+str(self.po_ee)+", flatted= "+str(self._xflatten.get() and True or False)
-            self.Ej_PlSa_But.comments[0].append(c1)              
-            self.Eo_PlSa_But.comments[0].append(spectra[0].comments[-3])
-            self.Eo_PlSa_But.comments[0].append(spectra[0].comments[-2])
-            self.Eo_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  iff_Ej\n")
-            self.Ej_PlSa_But.y_array= [[item.Ej for item in spectra]]
-            #-----------------Eo TCW---------------------
-        if self._check_TCW.get():
-            self.TCWxan_PlSa_But.x_array= [x]
-            self.TCWxan_PlSa_But.comments=[]
-            self.TCWxan_PlSa_But.comments.append(spectra[0].comments[:-3])
-            self.TCWxan_PlSa_But.comments[0].append( "# TCW Eo clculated with parameter %s , %s%s"
-                                                      %(str(self._TCW_start.get()), str(self._TCW_end.get()),"\n"))
-            self.TCWxan_PlSa_But.comments[0].append(spectra[0].comments[-3])
-            self.TCWxan_PlSa_But.comments[0].append(spectra[0].comments[-2])
-            self.TCWxan_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  TCW_Eo\n")
-            for item in spectra:
-                item.TCW_Eo= float(self._TCW_end.get()) -item.bm29int_Nor(float(eval(self._TCW_start.get())), float(eval(self._TCW_end.get())))
-            self.TCWxan_PlSa_But.y_array= [[item.TCW_Eo for item in spectra]]
-        if self._check_INT.get():
-            self.INTxan_PlSa_But.x_array= [x]
-            self.INTxan_PlSa_But.comments=[]
-            self.INTxan_PlSa_But.comments.append(spectra[0].comments[:-3])
-            self.INTxan_PlSa_But.comments[0].append( "# Int Eo clculated with parameter %s , %s%s"
-                                                   %(str(self._INTxan_start.get()), str(self._INTxan_end.get()),"\n"))
-            self.INTxan_PlSa_But.comments[0].append(spectra[0].comments[-3])
-            self.INTxan_PlSa_But.comments[0].append(spectra[0].comments[-2])
-            self.INTxan_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  Int\n")
-            for item in spectra:
-                item.INTxan= item.bm29int_Nor(float(eval(self._INTxan_start.get())), float(eval(self._INTxan_end.get())))
-            self.INTxan_PlSa_But.y_array= [[item.INTxan for item in spectra]]
-        print "\n---module XANES done\n"    
-
-
-
-
-
-
+#see module PPXANES
 ####################################   EXAFS/FT #########################################################
 class EXAFT():
     def __init__(self, genitore):
@@ -2627,10 +1576,10 @@ class EXAFT():
         self._dk.set(.2)
         self._kstart.set(3)
         self._kend.set(16)
-        self._pr_es.set("start of the spectra")
+        self._pr_es.set("start of the spectrum")
         self._pr_ee.set(-50)
         self._po_es.set(150)
-        self._po_ee.set("end of the spectra")
+        self._po_ee.set("end of the spectrum")
         self.kweigth.set(2)
         self.kweigthplot.set(1)
         self.FTweigth.set(3)
@@ -2734,13 +1683,13 @@ class EXAFT():
         c1="#L k  chik**"+ str(w)+"\n"
         for item in self.exa_PlSa_But.comments: item.pop(); item.append(c1)
         self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
-        self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in spectra]
+        self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
 
     def plot2(self):
         self.bkg_PlSa_But.plot()
         self.bkg_PlSa_But.graph.clear()
-        self.bkg_PlSa_But.graph.plot([i.E   for i in spectra],
-                                           [i.Mu  for i in spectra])
+        self.bkg_PlSa_But.graph.plot([i.E   for i in PPset.spectra],
+                                           [i.Mu  for i in PPset.spectra])
         self.bkg_PlSa_But.graph.plot( self.bkg_PlSa_But.x_array,
                                         self.bkg_PlSa_But.y_array)
 
@@ -2750,19 +1699,19 @@ class EXAFT():
         #-----------------         EXAFS      ---------------------
         if self._check_exa.get():
             w = self.kweigthplot.get()
-            for item in spectra:
+            for item in PPset.spectra:
                 ceck=item.EXAFS_EX( self.Eop, self.rbkg, self.skmin, self.skmax, self.kweigth.get(),
                                0.2,  self._FTWind.get(), self.pr_es, self.pr_ee,
                                self.po_es , self.po_ee)
-            self.exa_PlSa_But.x_array= [item.k for item in spectra]
-            self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in spectra]
-            self.exa_PlSa_But.comments= [item.comments[:-1] for item in spectra]
+            self.exa_PlSa_But.x_array= [item.k for item in PPset.spectra]
+            self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
+            self.exa_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
             self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
             c1="#L k  chik**"+ str(self.kweigthplot.get())+"\n"
             for item in self.exa_PlSa_But.comments: item.append(c1)
-            self.bkg_PlSa_But.x_array= [item.E for item in spectra]
-            self.bkg_PlSa_But.y_array= [item.bkg for item in spectra]
-            self.bkg_PlSa_But.comments= [item.comments[:-1] for item in spectra]
+            self.bkg_PlSa_But.x_array= [item.E for item in PPset.spectra]
+            self.bkg_PlSa_But.y_array= [item.bkg for item in PPset.spectra]
+            self.bkg_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
             for item in self.bkg_PlSa_But.comments: item.append("#L E  bkg\n")
         #-----------------         FT      ---------------------
         if self._check_FT.get():
@@ -2770,20 +1719,20 @@ class EXAFT():
             k_min=float(eval(self._kstart.get()))
             k_max=float(eval(self._kend.get()))
             _dk  =float(eval(self._dk.get()))
-            for item in spectra:
+            for item in PPset.spectra:
                 item.FT_F( k_min , 0 ,k_max, _dk, self.FTweigth.get(), self._FTWind.get())
-            self.FTMg_PlSa_But.x_array= [item.r for item in spectra]
-            self.FTMg_PlSa_But.y_array= [item.mag for item in spectra]
-            self.FTMg_PlSa_But.comments= [item.comments[:-1] for item in spectra]
+            self.FTMg_PlSa_But.x_array= [item.r for item in PPset.spectra]
+            self.FTMg_PlSa_But.y_array= [item.mag for item in PPset.spectra]
+            self.FTMg_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
             self.FTMg_PlSa_But.title = "FT chi*k**"+str(w)
             c1="#L R  FT_Mg"+str(self.FTweigth.get())+"\n"
             for item in self.exa_PlSa_But.comments: item.append(c1)
             self.FTMg_PlSa_But.title = "FT chi*k**"+str(w)
             c1= "#L R  FT_Im*k**"+str(self.FTweigth.get())+"\n"
             for item in self.FTMg_PlSa_But.comments: item.append(c1)
-            self.FTIm_PlSa_But.x_array= [item.r for item in spectra]
-            self.FTIm_PlSa_But.y_array= [item.imag for item in spectra]
-            self.FTIm_PlSa_But.comments= [item.comments[:-1] for item in spectra]
+            self.FTIm_PlSa_But.x_array= [item.r for item in PPset.spectra]
+            self.FTIm_PlSa_But.y_array= [item.imag for item in PPset.spectra]
+            self.FTIm_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
             c1="#L R  FT_Im"+str(self.FTweigth.get())+"\n"
             for item in self.FTIm_PlSa_But.comments: item.append(c1)
         return
@@ -2921,7 +1870,7 @@ class QFeffGenerate():
         bond = float(self._bond.get())
         Absorber = self._Absorber.get()
         Scatter = self._Scatter.get()
-        feffinput=Exapy.QSFEFF(Absorber, Scatter, bond , edge, geometry)
+        feffinput=exapy.QSFEFF(Absorber, Scatter, bond , edge, geometry)
         fefffile=tkFileDialog.asksaveasfile(title= "directory for save feff input end output",
                                                 initialfile ="feff",
                                                 defaultextension = "inp")
@@ -3151,7 +2100,7 @@ class FIT:
         Path_Quadro.wait_window()
         self.pathselect_1.filenames=path1.genpath.filenames
         self.pathselect_1.name=os.path.basename(path1.genpath.filenames[0])
-        self.path1 = (Exapy.path(self.pathselect_1.filenames[0]))
+        self.path1 = (exapy.path(self.pathselect_1.filenames[0]))
         self.label_path1 = self.pathselect_1.name + "      reff =" + str(self.path1.reff)+"  "
         self.label_path1+= self.path1.geom+"  nleg="+str(self.path1.nlegs)
         self.pathselect_1.labelfiletext.set(self.label_path1)
@@ -3173,7 +2122,7 @@ class FIT:
         Path_Quadro.wait_window()
         self.pathselect_1.filenames=path1.genpath.filenames
         self.pathselect_1.name=os.path.basename(path1.genpath.filenames[0])
-        self.path2 = (Exapy.path(self.pathselect_1.filenames[0]))
+        self.path2 = (exapy.path(self.pathselect_1.filenames[0]))
         self.label_path2 = self.pathselect_1.name + "      reff =" + str(self.path1.reff)+"  "
         self.label_path2+= self.path1.geom+"  nleg="+str(self.path1.nlegs)
         self.pathselect_2.labelfiletext.set(self.label_path2)
@@ -3196,7 +2145,7 @@ class FIT:
         try:
             kmax =  float(self._kend.get())
         except ValueError:
-            kmax=max(spectra[0].k)
+            kmax=max(PPset.spectra[0].k)
         rmin      =  float(self._Rstart.get())
         rmax      =  float(self._Rend.get())
         kweight   =  self._kweigth.get()
@@ -3231,16 +2180,16 @@ class FIT:
             self.path2.r_start=       float(self._r2.get())
       #---------------------------Fit --------------------------------
         print kmin
-        for item in spectra:
+        for item in PPset.spectra:
             item.FT_F(kmin , 0 ,kmax, .3, kweight,
                            "hanning")
             item.FIT(kmin, kmax, rmin, rmax, .3, kweight,
                         "hanning", fit_space, path)
       #---------------------------Post Fit --------------------------------
-        self.Fit_PlSa_But.x_array = [item.r for item in spectra]
-        self.Fit_PlSa_But.y_array = [item.fit_mag for item in spectra]
-        self.Fit_PlSa_But.z_array = [item.mag for item in spectra]
-        self.Fit_PlSa_But.comments = [item.comments[:-1] for item in spectra]
+        self.Fit_PlSa_But.x_array = [item.r for item in PPset.spectra]
+        self.Fit_PlSa_But.y_array = [item.fit_mag for item in PPset.spectra]
+        self.Fit_PlSa_But.z_array = [item.mag for item in PPset.spectra]
+        self.Fit_PlSa_But.comments = [item.comments[:-1] for item in PPset.spectra]
         c1="#L k  chi*k**"+ str(self._kweigth.get())+" exp\n"
         for item in self.Fit_PlSa_But.comments: item.append(c1)
         self.Fit_PlSa_But.ext ="FTMag"
@@ -3262,13 +2211,13 @@ class FIT:
             #print st_attrib
             bu_attrib= getattr(self, st_attrib)
             #print bu_attrib
-            setattr(bu_attrib, x_att, [x])
-            yarray = [[item.fit_res[pa]  for item in spectra]]
+            setattr(bu_attrib, x_att, [PPset.x])
+            yarray = [[item.fit_res[pa]  for item in PPset.spectra]]
             setattr(bu_attrib, y_att, yarray)
             delta_pa="delta_"+pa
-            zarray = [[item.fit_res[delta_pa]  for item in spectra]]
+            zarray = [[item.fit_res[delta_pa]  for item in PPset.spectra]]
             setattr(bu_attrib, z_att, zarray)
-            commentarray = ["# "+pa +delta_pa  for item in spectra]
+            commentarray = ["# "+pa +delta_pa  for item in PPset.spectra]
             setattr(bu_attrib, "comments", commentarray)
             setattr(bu_attrib, "error", True)
         return
@@ -3279,19 +2228,19 @@ class FIT:
     def changeplot(self):
         w =self._kweigth.get()
         if self.plotfit.get()=="R":
-            self.Fit_PlSa_But.x_array = [item.r for item in spectra]
-            self.Fit_PlSa_But.y_array = [item.fit_mag for item in spectra]
-            self.Fit_PlSa_But.z_array = [item.mag for item in spectra]
-            self.Fit_PlSa_But.comments = [item.comments[:-1] for item in spectra]
+            self.Fit_PlSa_But.x_array = [item.r for item in PPset.spectra]
+            self.Fit_PlSa_But.y_array = [item.fit_mag for item in PPset.spectra]
+            self.Fit_PlSa_But.z_array = [item.mag for item in PPset.spectra]
+            self.Fit_PlSa_But.comments = [item.comments[:-1] for item in PPset.spectra]
             c1="#L k  chik**"+ str(self._kweigth.get())+"  exp\n"
             for item in self.Fit_PlSa_But.comments: item.append(c1)
             self.Fit_PlSa_But.title = "FT(chi(k)*k**%s)" %w
             self.Fit_PlSa_But.ext =".FitFTMag"
         if self.plotfit.get()=="k":
-            self.Fit_PlSa_But.x_array = [item.k for item in spectra]
-            self.Fit_PlSa_But.y_array = [item.fit_chi*item.k**w for item in spectra]
-            self.Fit_PlSa_But.z_array = [item.chi*item.k**w for item in spectra]
-            self.Fit_PlSa_But.comments = [item.comments[:-1] for item in spectra]
+            self.Fit_PlSa_But.x_array = [item.k for item in PPset.spectra]
+            self.Fit_PlSa_But.y_array = [item.fit_chi*item.k**w for item in PPset.spectra]
+            self.Fit_PlSa_But.z_array = [item.chi*item.k**w for item in PPset.spectra]
+            self.Fit_PlSa_But.comments = [item.comments[:-1] for item in PPset.spectra]
             c1="#L k  chik**"+ str(w)+"  exp\n"
             for item in self.Fit_PlSa_But.comments: item.append(c1)
             self.Fit_PlSa_But.title = "chi(k)*k**%s" %w
@@ -3341,19 +2290,18 @@ class XDEF:
       #---------------------------------  perform        ------------------------------------------
 
     def Define(self):
-        global x, xlabel
         xset= self._x.get()
         if   xset=="elapsed time: min":
-            x = numpy.array([item.start_time_ep for item in spectra])
+            x = numpy.array([item.start_time_ep for item in PPset.spectra])
             x-= x[0]
             x/= 60
             xlabel= "min"
         elif xset=='elapsed time: sec':
-            x = numpy.array([item.start_time_ep for item in spectra])
+            x = numpy.array([item.start_time_ep for item in PPset.spectra])
             x-= x[0]
             xlabel= "sec"
         elif xset=="index":
-            x=range(1,len(spectra)+1)
+            x=range(1,len(PPset.spectra)+1)
             xlabel= "index"
         else: print "ERROR", xset    
         self.Synchplot(self._plot.get())
@@ -3366,35 +2314,35 @@ class XDEF:
                    xset=self._plot.get()
         print "defined x " ,self._x.get()        
         print "defined y " ,xset, "\n"
-        self.Plot_PlSa_But.x_array= [x]
+        self.Plot_PlSa_But.x_array= [PPset.x]
         self.Plot_PlSa_But.comments=[]
-        self.Plot_PlSa_But.comments.append(spectra[0].comments[:-1])
+        self.Plot_PlSa_But.comments.append(PPset.spectra[0].comments[:-1])
         
         if xset=='elapsed time: min':
-            y = numpy.array([item.start_time_ep for item in spectra])
+            y = numpy.array([item.start_time_ep for item in PPset.spectra])
             y -= y[0]
             y /= 60
             self.Plot_PlSa_But.y_array= [y]
             xset="min"
             self.Plot_PlSa_But.title= xset+"  vs  "+xlabel
         elif xset== 'elapsed time: sec':
-            y = numpy.array([item.start_time_ep for item in spectra])
+            y = numpy.array([item.start_time_ep for item in PPset.spectra])
             y-= y[0]
             self.Plot_PlSa_But.y_array= [y]
             self.Plot_PlSa_But.title= xset+"vs  "+xlabel
             xset="sec"
         elif xset=='Temperature 1    ':
-            y = [item.T1 for item in spectra]
+            y = [item.T1 for item in PPset.spectra]
             self.Plot_PlSa_But.y_array= [y]
             self.Plot_PlSa_But.title= xset+"vs  "+xlabel
             xset="T1"
         elif xset=='Temperature 2    ':
-            y = [item.T1 for item in spectra]
+            y = [item.T1 for item in PPset.spectra]
             self.Plot_PlSa_But.y_array= [y]
             self.Plot_PlSa_But.title= xset+" vs  "+xlabel
             xset="T2"
         elif xset=="index":
-            y=range(1,len(spectra)+1)
+            y=range(1,len(PPset.spectra)+1)
             self.Plot_PlSa_But.y_array= [y]
             self.Plot_PlSa_But.title= xset+" vs  "+xlabel
 
@@ -3404,9 +2352,6 @@ class XDEF:
 class Tscan:
     def __init__(self, genitore):
         global filesel_spectra
-        global spectra
-        global x
-        global xlabel
         global path
         global Dis_coeff
         global inivar
@@ -3419,8 +2364,6 @@ class Tscan:
 
         Dis_coeff=[None,None,None]
         path=list()
-        xlabel = "Index"
-        spectra=[]
         x=[]
 
         #menu
@@ -3474,12 +2417,12 @@ class Tscan:
        #  Averages
         self.p2 = Frame(self.nb)
         self.nb.add(self.p2, text="Averages")
-        self.Avesel= Avesel(self.p2)
+        self.Avesel= PPAvesel.Avesel(self.p2)
         self.Avesel.pulsante_Aver.configure(command = self.SelAver2)
        #  XANES
         self.p3 = Frame(self.nb)
         self.nb.add(self.p3, text="XANES")
-        self.XAN= XANES(self.p3)
+        self.XAN= PPXanes.XANES(self.p3)
         self.nb.pack()
         self._fromf= StringVar()
         self._tof= StringVar()#
@@ -3519,20 +2462,20 @@ class Tscan:
         elif beamline=="opensf":
             self.menu.opensfile()
             self.nb.select(1)
-        self.Avesel._from_tof.set("1-"+str(len(filesel_spectra)))
-        self.Avesel.before.set((min(filesel_spectra[0].E)))
-        self.Avesel.after.set((max(filesel_spectra[0].E)))
+        self.Avesel._from_tof.set("1-"+str(len(PPset.filesel_spectra)))
+        self.Avesel.before.set((min(PPset.filesel_spectra[0].E)))
+        self.Avesel.after.set((max(PPset.filesel_spectra[0].E)))
         pass
 
     def SelAver2(self):
         self.Avesel.Perform()
-        if spectra != []:
-            self.XAN._deriv_start.set(round(min(spectra[0].E),3))
-            self.XAN._deriv_end.set(round(max(spectra[0].E),3))
-            self.XAN._TCW_start.set(round(min(spectra[0].E),3))
-            self.XAN._TCW_end.set(round(max(spectra[0].E),3))
-            self.XAN._INTxan_start.set(round(min(spectra[0].E),3))
-            self.XAN._INTxan_end.set(round(max(spectra[0].E),3))
+        if PPset.spectra != []:
+            self.XAN._deriv_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._deriv_end.set(round(max(PPset.spectra[0].E),3))
+            self.XAN._TCW_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._TCW_end.set(round(max(PPset.spectra[0].E),3))
+            self.XAN._INTxan_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._INTxan_end.set(round(max(PPset.spectra[0].E),3))
         pass
     
     def num_deriv(self,x):
@@ -3540,17 +2483,17 @@ class Tscan:
         for wgt in self.p3.pack_slaves():
             wgt.destroy()
         del self.XAN
-        self.XAN= XANES(self.p3)
+        self.XAN= PPXanes.XANES(self.p3)
         self.nb.pack()
         self._fromf= StringVar()
         self._tof= StringVar()
         if spectra != []:
-            self.XAN._deriv_start.set(round(min(spectra[0].E),3))
-            self.XAN._deriv_end.set(round(max(spectra[0].E),3))
-            self.XAN._TCW_start.set(round(min(spectra[0].E),3))
-            self.XAN._TCW_end.set(round(max(spectra[0].E),3))
-            self.XAN._INTxan_start.set(round(min(spectra[0].E),3))
-            self.XAN._INTxan_end.set(round(max(spectra[0].E),3))        
+            self.XAN._deriv_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._deriv_end.set(round(max(PPset.spectra[0].E),3))
+            self.XAN._TCW_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._TCW_end.set(round(max(PPset.spectra[0].E),3))
+            self.XAN._INTxan_start.set(round(min(PPset.spectra[0].E),3))
+            self.XAN._INTxan_end.set(round(max(PPset.spectra[0].E),3))        
         
     
 

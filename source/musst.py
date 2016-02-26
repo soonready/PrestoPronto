@@ -43,7 +43,7 @@ import tkFileDialog
 import bm29_tools as bt
 import numpy                                                                                                  
 import Tix
-import tables
+import xtables
 steptime= 2.5e-6
 stepfordegree=36000.0
 minstep =.1
@@ -79,7 +79,7 @@ class MUSST:
         self._Energy.set(tables.Edge_energy[self._Element.get()]
                [tables.QN_Transition.index(self._Edgecombo.get())])
         self._Gamma.set(round(tables.getGamach(
-               tables.elements.index(self._Element.get()),
+               xtables.elements.index(self._Element.get()),
                self._Edgecombo.get()),2))        
         self._afterE.set(1600)
         self._kafterE.set(str(bt.Etok(float(self._afterE.get()),0)))
@@ -251,7 +251,7 @@ class MUSST:
         monovelocity = float(eval(self._mono_velocity.get()))
         start=   float(eval(self._Energy.get()))- float(eval(self._beforeE.get()))
         end =  float(eval(self._Energy.get()))+float(eval(self._afterE.get()))
-        dspacing = tables.dspacing[self._Crystal.get()]
+        dspacing = xtables.dspacing[self._Crystal.get()]
         self._time.set(round(bt.time_scan(start,end,monovelocity,dspacing,stepfordegree=36000.0),1))
         start=   float(eval(self._Energy.get()))
         end =  float(eval(self._Energy.get())) + float(eval(self._mEs.get()))
@@ -269,7 +269,7 @@ class MUSST:
         monovelocity = float(eval(self._mono_velocity.get()))
         start=   float(eval(self._Energy.get()))- float(eval(self._beforeE.get()))
         end =  float(eval(self._Energy.get()))+float(eval(self._afterE.get()))
-        dspacing = tables.dspacing[self._Crystal.get()]
+        dspacing = xtables.dspacing[self._Crystal.get()]
         self._time.set(round(bt.time_scan(start,end,monovelocity,dspacing,stepfordegree=36000.0),1))
         start=   float(eval(self._Energy.get()))
         end =  float(eval(self._Energy.get())) + float(eval(self._mEs.get()))

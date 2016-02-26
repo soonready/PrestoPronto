@@ -32,444 +32,643 @@
 
 import sys
 #sys.path.append('C:\Python26\Lib\site-packages\Ifeffit')
-import Ifeffit  
+#import Ifeffit  
+import os
 import numpy  as np
-from tables import elements, QN_Transition 
+from xtables import elements, QN_Transition 
 from scipy.interpolate import LSQUnivariateSpline as Spline
 global iff 
 global __verbose__
 __verbose__ = False#True#
 
-       
-class exaPy:
+MAX_FILESIZE= 12e9
+
+import larch 
+from larch.utils import fixName
+
+
+
+# now import larch-specific Python code
+from larch_plugins import xafs
+
+
+
+# create a larch interpreter, passed to most functions
+my_larch = larch.Interpreter(with_plugins=False)
+
+
+
+
+
+# create an empty Group
+def colname(txt):
+    return fixName(txt.strip().lower()).replace('.', '_')
+def getfloats(txt):
+    words = [w.strip() for w in txt.replace(',', ' ').split()]
+    try:
+        return [float(w) for w in words]
+    except:
+        return None    
+
+
+
+class _Group(larch.Group):
+    """Gereneric Group class to interface larch Group 
+    """
+    def __init__(self, name=None, **kws):
+        if kws.has_key("_larch"):
+            super(_Group, self).__init__(name=None, **kws)
+        else:
+            super(_Group, self).__init__(name=None, _larch=my_larch, **kws)
+        return      
+#
+class ParamGroup(_Group):
+    """a class to contain parameter
+    """
+    def __repr__(self):
+        lista=dir(self)
+        return 'ParamGroup(%s)' %', '.join(lista)
+#
+
+def read_ascii(fname, labels=None, sort=False, sort_column=0, 
+                                       COMMENTCHARS = '#;%*!$'):
+    """read a column ascii column file, returning a group containing the data from the file.
+
+    read_ascii(filename, labels=None, sort=False, sort_column=0)
+
+    If the header is one of the forms of
+        KEY : VAL
+        KEY = VAL
+    these will be parsed into a 'attrs' dictionary in the returned group.
+
+    If labels is left the default value of None, column labels will be tried to
+    be created from the line immediately preceeding the data, or using 'col1', 'col2',
+    etc if column labels cannot be figured out.   The labels will be used to create
+    1-d arrays for each column
+
+    The group will have a 'data' component containing the 2-dimensional data, it will also
+    have a 'header' component containing the text of the header -- an array of lines.
+    If a footer (text after the block of numerical data) is in the file, the array of
+    lines for this text will be put in the 'footer' component.
+
+    """
+    
+    if not os.path.isfile(fname):
+        raise OSError("File not found: '%s'" % fname)
+    if os.stat(fname).st_size > MAX_FILESIZE:
+        raise OSError("File '%s' too big for read_ascii()" % fname)
+
+    finp = open(fname, 'r')
+    text = finp.readlines()
+    finp.close()
+
+    _labelline, ncol = None, None
+    data, footers, headers = [], [], []
+
+    attrs = {'filename': fname}
+
+    text.reverse()
+    section = 'FOOTER'
+
+    for line in text:
+        line = line[:-1].strip()
+        if len(line) < 1:
+            continue
+        # look for section transitions (going from bottom to top)
+        if section == 'FOOTER' and getfloats(line) is not None:
+            section = 'DATA'
+        elif section == 'DATA' and getfloats(line) is None:
+            section = 'HEADER'
+            _labelline = line
+        # act of current section:
+        if section == 'FOOTER':
+            footers.append(line)
+        elif section == 'HEADER':
+            headers.append(line)
+        elif section == 'DATA':
+            data.append(line)
+            
+        
+    
+    
+    # reverse header, footer, data, convert to arrays
+    footers.reverse()
+    headers.reverse()
+    data.reverse()
+    data =np.loadtxt(data).transpose()
+
+    # try to parse attributes from header text
+    header_attrs = {}
+    for hline in headers:
+        hline = hline.strip().replace('\t', ' ')
+        if len(hline) < 1: continue
+        if hline[0] in COMMENTCHARS:
+            hline = hline[1:].strip()
+        keywds = []
+        if ':' in hline: # keywords in  'x: 22'
+            words = hline.split(':', 1)
+            keywds = words[0].split()
+        elif '=' in hline: # keywords in  'x = 22'
+            words = hline.split('=', 1)
+            keywds = words[0].split()
+        if len(keywds) == 1:
+            key = colname(keywds[0])
+            if key.startswith('_'):
+                key = key[1:]
+            if len(words) > 1:
+                header_attrs[key] = words[1].strip()
+
+    ncols, nrow = data.shape
+    
+    # set column labels
+    _labels = ['col%i' % (i+1) for i in range(ncols)]
+    if labels is None:
+        if _labelline is None:
+            _labelline = ' '.join(_labels)
+        if _labelline[0] in COMMENTCHARS:
+            _labelline = _labelline[1:].strip()
+        _labelline = _labelline.lower()
+        try:
+            labels = [colname(l) for l in _labelline.split()]
+        except:
+            labels = []
+    elif isinstance(labels, str):
+        labels = labels.replace(',', ' ')
+        labels = [colname(l) for l in labels.split()]
+
+    for i, lab in enumerate(labels):
+        try:
+            _labels[i] = lab
+        except:
+            pass
+
+    attrs['column_labels'] = _labels
+    if sort and sort_column >= 0 and sort_column < nrow:
+         data = data[:,np.argsort(data[sort_column])]
+         
+         
+         
+
+    group=ExaPy(data=data, headers=headers)
+
+    for i, nam in enumerate(_labels):
+        setattr(group, nam.lower(), data[i])
+        
+    if len(footers) > 0:
+        setattr(group, 'footer', footers)
+        
+    for key, val in attrs.items():
+        setattr(group, key, val)
+
+    group.atgrp=_Group(**header_attrs)
+    return group
+
+
+
+
+
+
+class ExaPy(_Group):
     """EXAFS class defined in order to analyze the Mu signals
-    it define till noz three function 
+    it define till now three function 
     XANES_Norm results in array attributes Nor
     EXAFS_EX   results in array attributes k, chi, Bkg
     FT_T results in array attributes mag  pha real imag 
     """
-    def __init__(self, E = None, Mu = None):
-         self.E=E
-         self.Mu = Mu
-         self.Eo=0
-         self.ej=0
-         self.pr_es=0
-         self.pr_ee=0  
-         self.po_es=0
-         self.po_ee=0 
-         self.flatten = 1  
-         self.rbkg=1.0
-         self.skmin=0.0
-         self.skmax=0  
-         self.skweight=0
-         self.skwindow="kaiser-bessel"
-         self.norm_order=2
-         self.kmin=0.0
-         self.kmax=0  
-    
-    def XANES_Norm2(self, Eo=0, pr_es= 0, pr_ee=0, po_es=0 , po_ee=0, flatten = 1):
-          """perform XANES normalization
-          E= energu array, Mu = absorbtion array
-          pr_es and pr_ee start and end of preedge(negative value)
-          po_es and po_ee start and end post edge normalization
-          returns:
-          self.Nor = Xanes normalize,
-          self.Eo= e0
-          self.ej = edge step,  """
-          if  self.E==None or self.Mu==None:          
-              raise exaPyError, ('no E and Mu defined ')
-          iff=Ifeffit.Ifeffit()
-          iff.put_array("my.energy", self.E)                                          
-          iff.put_array("my.xmu", self.Mu)
-          pre_edge_com = "pre_edge(my.energy, my.xmu, group =my" 
-          if (Eo!=0): pre_edge_com += ",e0= %f" % Eo 
-          if (pr_es!=0): pre_edge_com += ", pre1= %f" % pr_es
-          if (pr_ee!=0): pre_edge_com += ", pre2= %f" % pr_ee
-          if (po_es!=0): pre_edge_com += ", norm1= %f" % po_es
-          if (po_ee!=0): pre_edge_com += ", norm2= %f" % po_ee
-          iff.ifeffit(pre_edge_com +")")
-          Eo = iff.get_scalar("e0")        
-          Ej = iff.get_scalar("edge_step")
-          if (po_ee == 0):
-               pre_edge_com += ", norm2= %f" % (max(self.E)-Eo-5)
-               iff.ifeffit(pre_edge_com +")")
-          print pre_edge_com +")"
-          norm = iff.get_array("my.norm")
-          self.pr_es = iff.get_scalar("pre1")
-          self.pr_ee = iff.get_scalar("pre2")
-          self.po_es = iff.get_scalar("norm1")
-          self.po_ee = iff.get_scalar("norm2")   
-          self.Eo = Eo
-          self.Ej = Ej
-          self.Nor = norm
-          if (flatten):                           
-               n0 = iff.get_scalar("norm_c0")
-               n1 = iff.get_scalar("norm_c1")
-               n2 = iff.get_scalar("norm_c2")
-               p0 = iff.get_scalar("pre_offset")
-               p1 = iff.get_scalar("pre_slope")
-               ej = iff.get_scalar("edge_step")    
-               flat = lambda x: 0 if (x <= Eo) else (p0-n0+ej)+ (p1-n1)*x - n2*x**2
-               for i,item in enumerate(self.Nor): self.Nor[i] = item +flat(self.E[i])/ej # 
+   
+    def XANES_Norm(self, e0=None, step=None, nnorm=3, nvict=0, 
+             pre1=None, pre2=-50, norm1=100, norm2=None, make_flat=True, **kwd):
+          """pre edge subtraction, normalization for XAFS from larch 
+          This performs a number of steps:
+             1. determine E0 (if not supplied) from max of deriv(mu)
+             2. fit a line of polymonial to the region below the edge
+             3. fit a polymonial to the region above the edge
+             4. extrapolae the two curves to E0 to determine the edge jump
+          
+          Arguments
+          ----------
+           e0:      edge energy, in eV.  If None, it will be determined here.
+           step:    edge jump.  If None, it will be determined here.
+           pre1:    low E range (relative to E0) for pre-edge fit
+           pre2:    high E range (relative to E0) for pre-edge fit
+           nvict:   energy exponent to use for pre-edg fit.  See Note
+           norm1:   low E range (relative to E0) for post-edge fit
+           norm2:   high E range (relative to E0) for post-edge fit
+           nnorm:   degree of polynomial (ie, nnorm+1 coefficients will be found) for
+                    post-edge normalization curve. Default=3 (quadratic), max=5
+           make_flat: boolean (Default True) to calculate flattened output.
+           _larch   : Interpreter class (please not touch)
+          
+          
+          Returns
+          -------
+          None          
+          The following attributes will be written to the group:
+              e0          energy origin
+              edge_step   edge step
+              norm        normalized mu(E)
+              flat        flattened, normalized mu(E)
+              pre_edge    determined pre-edge curve
+              post_edge   determined post-edge, normalization curve
+              dmude       derivative of mu(E)
+          
+          Notes
+          -----
+           1 nvict gives an exponent to the energy term for the fits to the pre-edge
+             and the post-edge region.  For the pre-edge, a line (m * energy + b) is
+             fit to mu(energy)*energy**nvict over the pre-edge region,
+             energy=[e0+pre1, e0+pre2].  For the post-edge, a polynomial of order
+             nnorm will be fit to mu(energy)*energy**nvict of the post-edge region
+             energy=[e0+norm1, e0+norm2]."""
+
+          xafs.pre_edge(self, _larch=self._larch, e0=e0, step=step, nnorm=nnorm,
+                                 nvict=nvict, pre1=pre1, pre2=pre2, norm1=norm1, 
+                                                    norm2=norm2, make_flat=True)
           return   
 
 
-    def XANES_Norm(self, Eo=0, pr_es= 0, pr_ee=0, po_es=0 , po_ee=0, flatten = 1, n_postpoly=3, operation={"p":True,"n":True}):
-          """perform XANES normalization
-          E= energu array, Mu = absorbtion array
-          Eo = Edge enrgy (max first derivative)
-          pr_es and pr_ee start and end of preedge (pr_es =start of spectra, pr_ee =Eo-50 )
-          po_es and po_ee start and end post edge normalization
-          n_postpoli= degree of polinomial for post edge normalization
-          operation = dictionary with key "p" and "n" and boolean values define if perform pre
-                     edge subtraction and/or normalization
-          returns:
-          self.Nor = Xanes normalize,
-          self.Eo= e0
-          self.ej = edge step,  """
-          if  self.E==None or self.Mu==None:          
-              raise exaPyError, ('no E and Mu defined ')
-          
-          # derivative obtained by method of local difference
-          dif=np.gradient(self.Mu)/np.gradient(self.E)
-       
-          
-          if (Eo==0):    Eo= self.E[np.argmax(dif)]
-          if (pr_es==0): pr_es= min(self.E)-Eo
-          if (pr_ee==0): pr_ee= -50
-          if (po_es==0): po_es= 150
-          if (po_ee==0): po_ee= max(self.E)-Eo
-          
-
-
-          if operation["p"]:
-              preedgecond=(self.E>(Eo+pr_es))&(self.E<=(Eo+pr_ee))
-              self.preedge_poly=np.poly1d(np.polyfit(self.E[preedgecond],self.Mu[preedgecond], 1))
-          else: self.preedge_poly=np.poly1d([0])
-              
-              
-          postedgecond= (self.E>Eo+po_es)&(self.E<=Eo+po_ee)
-          self.postedge_poly=np.poly1d(np.polyfit(self.E[postedgecond],self.Mu[postedgecond], n_postpoly))
-          
-          Ej= self.postedge_poly(Eo)-self.preedge_poly(Eo) if operation["n"] else 1.0
-          norm= (self.Mu-self.preedge_poly(self.E))/Ej
-          
-          if (flatten):
-              polyflat=self.postedge_poly-self.preedge_poly 
-              norm[self.E>Eo]=  norm[self.E>Eo]-(polyflat(np.compress(self.E>Eo,self.E))/Ej -1)
-          #flat = lambda x: 0 if (x <= Eo) else (p0-n0+ej)+ (p1-n1)*x - n2*x**2
-          #for i,item in enumerate(self.Nor): self.Nor[i] = item +flat(self.E[i])/ej 
-
-        
-          self.pr_es = pr_es
-          self.pr_ee = pr_ee
-          self.po_es = po_es
-          self.po_ee = po_ee   
-          self.Eo = Eo
-          self.Ej = Ej
-          self.Nor = norm
-          del norm
-          if __verbose__:
-              print "pre_edge(Eo= %5.2f,pr_es= %5.2f ,pr_ee %5.2f ,po_es %5.2f ,po_ee= %5.2f, flatten= %i)" %(Eo, pr_es ,pr_ee,po_es ,po_ee, flatten)
-          # 
-          return 
-
-
-
-
-
-
-
-
-
-
         
         
-        
-        
-        
-        
-    #def EXAFS_EX2(self, Eo=0, knot=0, wknot=0 rbkg=1.0, skmin=0.0, skmax=0, skweight=0,
-    #           sdk=0, skwindow="kaiser-bessel", pr_es= 0, pr_ee=0, 
-    #           po_es=0 , po_ee=0, norm_order=0): 
-    #     """Function for the exptattion of EXAFS signal
-    #     input parameters:
-    #        E= energu array, 
-    #        Mu = absorbtion array
-    #        knot=array of knot, 
-    #        wknot=array with the weigh of splines
-    #        rbkg = paremeter rbkg 
-    #        skweight= kweight for FT
-    #        skmin and skmax for FT
-    #        sdk  apodization
-    #        pr_es and pr_ee = start and end of preedge
-    #        po_es and po_ee = start and end post edge normalization
-    #     returns attributes:
-    #        Eo =edge energy
-    #        ej =edge step
-    #        Bkg =Mu_0 background array 
-    #        chi =chi array
-    #        k  = k array  
-    #     """ 
-    #LSQUnivariateSpline(self.E, self.Mu, t, w=None, bbox=[, None, None], k=3)   
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    def EXAFS_EX(self, Eo=0, rbkg=1.0, skmin=0.0, skmax=0, skweight=0,
-               sdk=0, skwindow="kaiser-bessel", pr_es= 0, pr_ee=0, 
-               po_es=0 , po_ee=0, norm_order=0):
-         """Function for the exptattion of EXAFS signal
-         input parameters:
-            E= energu array, 
-            Mu = absorbtion array
-            rbkg = paremeter rbkg 
-            skweight= kweight for FT
-            skmin and skmax for FT
-            sdk  apodization
-            pr_es and pr_ee = start and end of preedge
-            po_es and po_ee = start and end post edge normalization
-         returns attributes:
-            Eo =edge energy
-            ej =edge step
-            Bkg =Mu_0 background array 
-            chi =chi array
-            k  = k array  
-         """        
-         iff=Ifeffit.Ifeffit()
-         iff.put_array("my.energy", self.E)
-         iff.put_array("my.xmu", self.Mu)       
-         spline_com = "spline(my.energy, my.xmu, group =my" 
-         if (Eo!=0): spline_com += ",e0= %f" % Eo 
-         if (pr_es!=0): spline_com += ", pre1= %f" % pr_es
-         if (pr_ee!=0): spline_com += ", pre2= %f" % pr_ee
-         if (po_es!=0): spline_com += ", norm1= %f" % po_es
-         if (po_ee!=0): spline_com += ", norm2= %f" % po_ee
-         if (rbkg!=1): spline_com += ",  rbkg= %f" % rbkg
-         if (skmin!=0): spline_com += ", kmin= %f" % skmin
-         if (skmax!=0): spline_com += ", kmax = %f" % skmax
-         if (skweight!=0): spline_com += ", kweight= %f" % skweight
-         if (sdk!=0): spline_com += ", dk= %f" % sdk
-         if (skwindow!="kaiser-bessel"): spline_com += ", kwindow= %s" % skwindow
-         if (norm_order!=2): spline_com += ", norm_order = %f" % norm_order
-         iff.ifeffit(spline_com +")")      
-         self.Eo = iff.get_scalar("e0")                                              
-         self.ej = iff.get_scalar("edge_step")
-         self.pr_es = iff.get_scalar("pre1")
-         self.pr_ee = iff.get_scalar("pre2")
-         self.pr_os = iff.get_scalar("norm1")
-         self.pr_oe = iff.get_scalar("norm2")   
-         self.skmin = iff.get_scalar("kmin")
-         self.skmax = iff.get_scalar("kmax")
-         self.skweight = iff.get_scalar("kweight")
-         self.bkg = iff.get_array("my.bkg")        
-         self.chi = iff.get_array("my.chi")
-         self.k =   iff.get_array("my.k")             
-         #Norm = iff.get_array("my.norm")
-         return                
+
+    def EXAFS_EX(self, rbkg=1, nknots=None, e0=None,
+         edge_step=None, kmin=0, kmax=None, kweight=1, dk=0,
+         win='hanning', k_std=None, chi_std=None, nfft=2048, kstep=0.05,
+         pre_edge_kws=None, nclamp=4, clamp_lo=1, clamp_hi=1,
+         calc_uncertainties=False, **kws):
+         """Use Autobk algorithm to remove XAFS background from larch
+         Parameters:
+         -----------
+           rbkg:      distance (in Ang) for chi(R) above
+                      which the signal is ignored. Default = 1.
+           e0:        edge energy, in eV.  If None, it will be determined.
+           edge_step: edge step.  If None, it will be determined.
+           pre_edge_kws:  keyword arguments to pass to pre_edge()
+           nknots:    number of knots in spline.  If None, it will be determined.
+           kmin:      minimum k value   [0]
+           kmax:      maximum k value   [full data range].
+           kweight:   k weight for FFT.  [1]
+           dk:        FFT window window parameter.  [0]
+           win:       FFT window function name.     ['hanning']
+           nfft:      array size to use for FFT [2048]
+           kstep:     k step size to use for FFT [0.05]
+           k_std:     optional k array for standard chi(k).
+           chi_std:   optional chi array for standard chi(k).
+           nclamp:    number of energy end-points for clamp [2]
+           clamp_lo:  weight of low-energy clamp [1]
+           clamp_hi:  weight of high-energy clamp [1]
+           calc_uncertaintites:  Flag to calculate uncertainties in
+                                 mu_0(E) and chi(k) [False]
+         -----------                                  
+         # if e0 or edge_step are not specified, get them, either from the
+         # passed-in group or from running pre_edge()                      
+         
+         Output arrays are written to the provided group"""
+         args=dict(locals())
+         del args["self"],args["kws"]
+         xafs.autobk(self, _larch=self._larch,**args)
+         for i in ['kweight', 'dk', 'rbkg']:
+             setattr(self, i, eval(i))
+         setattr(self, 'kmin', kmin)    
+         setattr(self, 'kmax', self.k[-1])
+         if not(e0 is None):self.e0=e0
+         return           
+             
         
 
-    def FT_F(self,  kmin=0 , rmax_out=0 ,kmax=0, dk=0.5, kweight=-1, kwindow='hanning' ):
-         """FT_F fourie transform an exafs sygnal
-         E= energu array, Mu = absorbtion array
-         pr_es and pr_ee start and end of preedge
-         po_es and po_ee start and end post edge normalization
-         returns:e0, edge step """ 
-         iff=Ifeffit.Ifeffit()
-         iff.put_array("my.chi", self.chi)
-         iff.put_array("my.k", self.k)    
-         ffts_com = "fftf(real = my.chi, k = my.k, group =my"
-         if (kmin!=0): ffts_com += ", kmin= %f" % kmin
-         if (kmax!=0): ffts_com += ", kmax= %f" % kmax
-         else:  ffts_com += ", kmax= %f" % max(self.k)
-         if (rmax_out!=0): ffts_com += ", rmax_out= %f" % rmax_out                                              
-         if (dk!=0): ffts_com += ", dk= %f" % dk  
-         if (kweight!=-1): ffts_com += ", kweight= %f" % kweight 
-         else:  ffts_com += ", kweight= 2"          
-         ffts_com +=", kwindow= %s" % kwindow
-         iff.ifeffit(ffts_com +")") 
-         self.mag  =iff.get_array("my.chir_mag")    
-         self.pha  =iff.get_array("my.chir_pha")    
-         self.real =iff.get_array("my.chir_re")    
-         self.imag =iff.get_array("my.chir_im")
-         self.r    =iff.get_array("my.r")
-         return    
+    def FT_F(self, Fkmin=0, Fkmax=20, Fkweight=0, dk=1, dk2=None, 
+             with_phase=False, window='kaiser', rmax_out=10, nfft=2048, 
+             kstep=0.05, **kws ):
+        """    forward XAFS Fourier transform, from chi(k) to chi(R), using
+        common XAFS conventions from larch.
+        
+        Parameters:
+        -----------
+          rmax_out: highest R for output data (10 Ang)
+          kweight:  exponent for weighting spectra by k**kweight
+          kmin:     starting k for FT Window
+          kmax:     ending k for FT Window
+          dk:       tapering parameter for FT Window
+          dk2:      second tapering parameter for FT Window
+          window:   name of window type
+          nfft:     value to use for N_fft (2048).
+          kstep:    value to use for delta_k (0.05 Ang^-1).
+          with_phase: output the phase as well as magnitude, real, imag  [False]
+        
+        Returns:
+        ---------
+          None   -- outputs are written to supplied group.
+        
+        Notes:
+        -------
+        Arrays written to output group:
+            kwin               window function Omega(k) (length of input chi(k)).
+            r                  uniform array of R, out to rmax_out.
+            chir               complex array of chi(R).
+            chir_mag           magnitude of chi(R).
+            chir_re            real part of chi(R).
+            chir_im            imaginary part of chi(R).
+            chir_pha           phase of chi(R) if with_phase=True
+                               (a noticable performance hit)
+        
+        Supports First Argument Group convention 
+        (with group member names 'k' and 'chi')"""
+        args=dict(locals())#; args.update(kws)
+        args["kmax"]=args["Fkmax"]           
+        args["kmin"]=args["Fkmin"]
+        del args["self"],args["kws"]
+        self.Fkmin=Fkmin
+        self.Fkmax=Fkmax if Fkmax<self.k[-1] else self.k[-1]
+        del args["Fkmin"],args["Fkmax"]
+        xafs.xftf(self, _larch=self._larch, **args)
+        self.rmax_out=rmax_out
+        
+        return
+  
          
          
-    def FT_R(self, real, imag,  r,  rmin=0 , rmax=3, dr=0.0, rweight=-1, rwindow='hanning' ):
-         """FT_T fourie transform an exafs sygnal
-         E= energu array, Mu = absorbtion array
-         pr_es and pr_ee start and end of preedge
-         po_es and po_ee start and end post edge normalization
-         returns:e0, edge step """ 
-         iff=Ifeffit.Ifeffit()
-         iff.put_array("my.real", Real)
-         iff.put_array("my.imag", Img)
-         iff.put_array("my.r", r)
-         ffts_com = "fftf(real = my.chi, imag = my.imag, k = my.k, group =my"
-         if (Rmin!=0): ffts_com += ", rmin= %f" % kmin
-         if (Rmax!=3): ffts_com += ", rmax= %f" % kmax
-         else:ffts_com += ", rmax= %f" % kmax
-         if (dk!=0): ffts_com += ", dr= %f" % dk  
-         if (rweight!=-1): ffts_com += ", rweight= %f" % kweight 
-         else:  ffts_com += ", rweight= 2"  
-         ffts_com +=", rwindow= %s" % rwindow
-         iff.ifeffit(ffts_com +")") 
-         self.chiq  =iff.get_scalar("my.chiq_mag")    
-         self.q =iff.get_scalar("my.q")    
-         return    
+    def FT_R(self, rmin=0, rmax=20, with_phase=False,
+            dr=1, dr2=None, rw=0, window='kaiser', qmax_out=None,
+            nfft=2048, kstep=0.05,  **kws):
+        """reverse XAFS Fourier transform, from chi(R) to chi(q).
+        calculate reverse XAFS Fourier transform
+        This assumes that chir_re and (optional chir_im are
+        on a uniform r-grid given by r.    
+        Parameters:
+        ------------
+          r:        1-d array of distance, or group.
+          chir:     1-d array of chi(R)
+          group:    output Group
+          qmax_out: highest *k* for output data (30 Ang^-1)
+          rweight:  exponent for weighting spectra by r^rweight (0)
+          rmin:     starting *R* for FT Window
+          rmax:     ending *R* for FT Window
+          dr:       tapering parameter for FT Window
+          dr2:      second tapering parameter for FT Window
+          window:   name of window type
+          nfft:     value to use for N_fft (2048).
+          kstep:    value to use for delta_k (0.05).
+          with_phase: output the phase as well as magnitude, real, imag  [False]
+        
+        Returns:
+        ---------
+          None -- outputs are written to supplied group.
+        
+        Notes:
+        -------
+        Arrays written to output group:
+            rwin               window Omega(R) (length of input chi(R)).
+            q                  uniform array of k, out to qmax_out.
+            chiq               complex array of chi(k).
+            chiq_mag           magnitude of chi(k).
+            chiq_re            real part of chi(k).
+            chiq_im            imaginary part of chi(k).
+            chiq_pha           phase of chi(k) if with_phase=True
+                               (a noticable performance hit)
+        
+        Supports First Argument Group convention (with group member names 'r' and 'chir')"""
+        args=dict(locals()); args.update(kws)
+        del args["self"],args["kws"] 
+        xafs.xftr(self, _larch=self._larch, **args)
+        return
+        
+    def _oneshellpar(self, label="0", amp=1, del_e0=0, sig2=0.003, del_r=0, vary=True):  
+        """quick do a group of parameter for a single shell
+        Parameters
+        ---------
+           label: a string defining number of path 
+           vary a all parameter flag"""
+           
+        if not hasattr(self, 'paramgroup'):
+            self.paramgroup=ParamGroup(_larch=self._larch)
+
+        
+        setattr(self.paramgroup, "amp"+label,    Parameter(amp, vary=vary, 
+                                                   min=0.1, _larch=self._larch))
+        setattr(self.paramgroup, "del_e0"+label, Parameter(del_e0, vary=vary, 
+                                          min=-10, max=10, _larch=self._larch ))
+        setattr(self.paramgroup, "sig2"+label,   Parameter(sig2, vary=vary, 
+                                          min=0, max=0.08 , _larch=self._larch))
+        setattr(self.paramgroup, "del_r"+label,  Parameter(del_r, vary=vary, 
+                                       min=-.08, max=0.08 , _larch=self._larch))
+        return  
+        
+        
+    def _PathsList(self,filenames,vary=True):
+        """quick do a list of path and a group of parameter associated for 
+           multiple shells
+        Parameters
+        ---------
+           filenames list of filemnames from path or a list of path class
+           label: a string defining number of path 
+           vary a all parameter flag
+        """
+        self.pathlist=list()
+        methvar = zip(['s02', 'e0', 'sigma2', 'deltar'],
+                      ["amp", "del_e0", "sig2", "del_r"])
+        
+        if all( type(i) is str for i in filenames ): 
+            for item in filenames:
+                pathtype=FeffPathGroup(filename=item,_larch=self._larch)
+                pathtype.label=pathtype.label[-8:-4]
+                if any([i.label for i in self.pathlist])==pathtype.label:
+                    pathtype.label=pathtype.label+_b
+                for meth_item, var_item in methvar: 
+                    setattr(pathtype, meth_item, var_item+pathtype.label)
+                self.pathlist.append(pathtype)       
+        elif all( type(i) is
+                larch_plugins.xafs.feffdat.FeffPathGroup for i in filenames ): 
+            self.pathlist = filenames
+        else:
+            raise Exception("filenames could be list of filenames of pathgroup") 
+        return
+
+
+    
+    def FIT(self,pathlist=None, pars=None,  transform=None, fit=True):
+        """fast automatic fit"""
+        #define self.pathlist
+        if pathlist is None:
+            if hasattr(self, "pathlist"):
+                pass
+            else:
+                raise Exception("no defined paths to use in the fit")
+        else:
+            self._PathsList(pathlist)
+        
+        #define self.paramgroup
+        if pars is None:
+            for item in self.pathlist: self._oneshellpar(item.label)
+        else:
+           self.paramgroup= pars
+        #define self.transform
+        if transform is None:
+            if hasattr(self, 'transform'):
+                pass
+            else:
+                self.transform=TransformGroup()
+        self.dataset=FeffitDataSet(data=self, pathlist=self.pathlist, 
+                                   transform=self.transform, _larch=self._larch)
+        if fit:
+            self.fit_out = feffit(params=self.paramgroup, datasets=self.dataset,
+                                                             _larch=self._larch)
+            self.fit_report = feffit_report(self.fit_out, _larch=self._larch)
+        return
+        
+            
+            
+           
+
+
+
+        
+
+             
                   
          
-         
-         
-    def FIT(self, kmin=0, kmax=0, rmin=0, rmax=6, dk=.5, kweight=2,kwindow="hanning", fit_space = "R", path=[]):
-        """EXAFS Fit function
-        E= energu array, Mu = absorbtion array
-        pr_es and pr_ee start and end of preedge
-        po_es and po_ee start and end post edge normalization
-        returns:e0, edge step 
-        path     list of path class
-        """ 
-        iff=Ifeffit.Ifeffit() 
-        #iff.ifeffit("show @scalars")
-        iff.put_array("my.chi", self.chi)
-        iff.put_array("my.k", self.k)
+
+
+
+#
+class Parameter(larch.Parameter):
+    """ returns a parameter object: a floating point value with bounds that can
+    be flagged as a variable for a fit, or given an expression to use to
+    automatically evaluate its value (as a thunk).
+    
+    >>> x = param(12.0, vary=True, min=0)
+    will set the value to 12.0, and allow it be varied by changing x._val,
+    but its returned value will never go below 0.
+    
+    >>> x = param(expr='sqrt(2*a)')
+    will have a value of sqrt(2*a) even if the value of 'a' changes after
+    the creation of x
+    """        
+    def __init__(self, value=0, min=None, max=None, vary=False, name=None, 
+                 expr=None, stderr=None, correl=None, units=None, decimals=5,
+                 _larch=my_larch, **kws):
+        args=dict(locals()); args.update(kws)
+        del args["self"],args["kws"] 
+        super(Parameter, self).__init__(**args)
         
-        for index,item in enumerate(path):
-            pathcom=[]
-            pathcom.append("path(%d, feff = \"%s\")"       %(index+1, item.feff_file)      )   
-            pathcom.append("path(%d, degen =     n%d)"      %(index+1, index+1)               )   
-            pathcom.append("path(%d, e0        = e%d)"      %(index+1, index+1)               )   
-            pathcom.append("path(%d, sigma2    = s%d)"      %(index+1, index+1)               )   
-            pathcom.append("path(%d, delr = r%d-reff)"      %(index+1, index+1)               )
-            pathcom.append("path(%d, force_read=  %s)"      %(index+1, item.force_read)     )  
-            #----------------------------------    
-            pathcom.append("%s  n%d    = %f"  %(item.degen_minimize, index+1, item.degen_start))   
-            pathcom.append("%s  e%d    = %f"  %(item.e0_minimize   , index+1, item.e0_start   ))   
-            pathcom.append("%s  r%d    = %f"  %(item.r_minimize    , index+1, item.r_start   ))   
-            pathcom.append("%s  s%d    = %f"  %(item.ss2_minimize  , index+1, item.ss2_start  ))
-            print "***********"
-            for ip in pathcom: 
-                print ip
-                iff.ifeffit(ip)
-        print "************************"
-        #iff.ifeffit("show @paths")
-        #print "************************"        
-        fitcom= "feffit(1-%d, group=my_fit, chi=my.chi, k=my.k" % len(path)
-        #fitcom= "feffit(1-%d, group=my_fit, chi=my.chi, k=my.k, kweight=2, kmax=16, rmax=3"
-        fitcom += ", kmin=%s"  % kmin
-        if (kmax!=0): fitcom += ", kmax=%f" % kmax
-        else:  fitcom += ", kmax=%.2f" % max(self.k)     
-        fitcom +=    ", rmin=%s"  % rmin
-        fitcom +=    ", rmax=%s"  % rmax
-        fitcom += ", kweight=%s"  % kweight
-        fitcom +=      ", dk=%s"  % dk          
-        fitcom +=", kwindow=%s"  % kwindow
-        fitcom +=", fit_space=%s"  % fit_space 
-        print fitcom+")"
-        ceck=iff.ifeffit(fitcom+")") 
-        print "check= ", ceck
-        self.fit_res = {}
-        for itera in range(len(path)):
-            for item in "ners":
-                pa = item+str(itera+1)
-                self.fit_res[pa] = iff.get_scalar(pa) 
-                delta_pa = "delta_"+pa
-                self.fit_res[delta_pa] = iff.get_scalar(delta_pa)
-            pass
-        pass
-        print "************************"
-        #iff.ifeffit("show @group=my_fit")
-        #iff.ifeffit("show @group=my")        
-        #print self.fit_res
-        #iff.ifeffit("show @scalars")        
-        self.fit_chi  =iff.get_array("my_fit.chi")    
-        self.fit_mag  =iff.get_array("my_fit.chir_mag")    
-        self.fit_imag =iff.get_array("my_fit.chir_im")
+             
+def FeffPathGroup(filename=None, _larch=my_larch, label=None, s02=None,
+             degen=None, e0=None,ei=None, deltar=None, sigma2=None,
+             third=None, fourth=None):
+    """Feff Path Group from a *feffNNNN.dat* file.
+
+    Parameters:
+    -----------
+      filename:  name (full path of) *feffNNNN.dat* file
+      label:     label for path   [file name]
+      degen:     path degeneracy, N [taken from file]
+      s02:       S_0^2    value or parameter [1.0]
+      e0:        E_0      value or parameter [0.0]
+      deltar:    delta_R  value or parameter [0.0]
+      sigma2:    sigma^2  value or parameter [0.0]
+      third:     c_3      value or parameter [0.0]
+      fourth:    c_4      value or parameter [0.0]
+      ei:        E_i      value or parameter [0.0]
+
+    For all the options described as **value or parameter** either a
+    numerical value or a Parameter (as created by param()) can be given.
+
+    Returns:
+    ---------
+        a FeffPath Group.
+    """
+    args=dict(locals())
+    x= xafs.feffdat.feffpath(**args)
+    scatters=[i[0] for i in x.geom]
+    scatters[0]=scatters[0]+"_a"
+    scatters.append(scatters[0])
+    x.geomg= "->".join(scatters)
+    return x
+
+
+class TransformGroup(xafs.TransformGroup):
+    """A Group of transform parameters.
+    The apply() method will return the result of applying the transform,
+    ready to use in a Fit.   This caches the FT windows (k and r windows)
+    and assumes that once created (not None), these do not need to be
+    recalculated....
     
+    That is: don't simply change the parameters and expect different results.
+    If you do change parameters, reset kwin / rwin to None to cause them to be
+    recalculated."""
+    def __init__(self, kmin=0, kmax=20, kweight=2, dk=4, dk2=None, 
+                 window='kaiser', nfft=2048, kstep=0.05, rmin=0, rmax=10, dr=0,
+                 dr2=None, rwindow='hanning', fitspace='r', _larch=my_larch, **kws):
+        args=dict(locals()); args.update(kws)
+        del args["self"],args["kws"] 
+        super(TransformGroup, self).__init__(**args)
+
     
-    
-    
-class path:    
-    #class param(self, )
-    def __init__(self,feff):                              
-        self.feff_file = str(feff)
-        self.force_read="false"
-        self.para=["degen", "s02", "e0", "delr", "sigma2"]
-        feffpath=open(feff)
-        while (True):
-            line=feffpath.readline()
-            if line[1]=="-": break
-        line=feffpath.readline()           
-        line = line.split()
-        self.nlegs, self.deg, self.reff = line[0:3]
-        line=feffpath.readline()         
-        geom=[]
-        while (True):
-            line=feffpath.readline()
-            #print line
-            #print line[4]
-            if line[4]=="k": break
-            geom.append(line.split()[5])
-        self.geom= "<->".join(geom)            
-        feffpath.close()
-        self.degen_start=   float(self.deg)
-        self.s02_start=     float(1)
-        self.e0_start=      float(0)
-        self.ss2_start =    float(0.005) 
-        self.r_start=       float(self.reff)
-        setattr(self, "r_minimize",  "guess")
-        setattr(self, "degen_minimize",  "guess")
-        setattr(self, "s02_minimize",  "def")  
-        setattr(self, "e0_minimize",  "guess")
-        setattr(self, "ss2_minimize",  "guess")    
-        return  
+class FeffitDataSet(xafs.FeffitDataSet):
+    """a data + a list of path class + TransformGroup
+    """
+    def __init__(self, data=None, pathlist=None, transform=None, 
+                 _larch=my_larch, **kws):
+        args=dict(locals()); del args["self"]
+        super(FeffitDataSet, self).__init__(**args) 
 
 
 
 
+def feffit(params, datasets, rmax_out=10, path_outputs=True, _larch=my_larch, **kws):
+    """execute a Feffit fit: a fit of feff paths to a list of datasets
+
+    Parameters:
+    ------------
+      paramgroup:   group containing parameters for fit
+      datasets:     Feffit Dataset group or list of Feffit Dataset group.
+      rmax_out:     maximum R value to calculate output arrays.
+      path_output:  Flag to set whether all Path outputs should be written.
+
+    Returns:
+    ---------
+      a fit results group.  This will contain subgroups of:
+
+        datasets: an array of FeffitDataSet groups used in the fit.
+        params:   This will be identical to the input parameter group.
+        fit:      an object which points to the low-level fit.
+
+     Statistical parameters will be put into the params group.  Each
+     dataset will have a 'data' and 'model' subgroup, each with arrays:
+        k            wavenumber array of k
+        chi          chi(k).
+        kwin         window Omega(k) (length of input chi(k)).
+        r            uniform array of R, out to rmax_out.
+        chir         complex array of chi(R).
+        chir_mag     magnitude of chi(R).
+        chir_pha     phase of chi(R).
+        chir_re      real part of chi(R).
+        chir_im      imaginary part of chi(R).
+        
+    Examples:
+    ---------
+      
+    """
+    return xafs.feffit(params, datasets, _larch=_larch, rmax_out=10, 
+                                              path_outputs=True, **kws)
+
+def feffit_report(result, min_correl=0.1, with_paths=True , _larch=my_larch):
+    """return a printable report of fit for feffit
+
+    Parameters:
+    ------------
+      result:      Feffit result, output group from feffit()
+      min_correl:  minimum correlation to report [0.1]
+      wit_paths:   boolean (True/False) for whether to list all paths [True]
+
+    Returns:
+    ---------
+      printable string of report.
+
+    """
+    return xafs.feffit_report(result, min_correl=0.1, with_paths=True,
+                              _larch=my_larch)
 
 
-
-
+#
 def QSFEFF(Absorber, Scatterer, rad=2,edge="K",geometry='Tetrahedral'): 
     """generate a feff file to calculate a scattering phase and amplitude 
        for a couple absorber scatterer ata distance rad for the edge 

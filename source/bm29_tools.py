@@ -32,7 +32,7 @@
 # authorization from Illinois Institute of Technology.
 
 
-import tables
+import xtables
 import bisect
 import scipy
 

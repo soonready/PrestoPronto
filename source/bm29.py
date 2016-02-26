@@ -34,7 +34,7 @@
 
 
 import scipy
-import Exapy
+import exapy
 import numpy as np
 from scipy import interpolate
 import os
@@ -193,7 +193,7 @@ class FileFormatError(Exception):
 
 
 
-class bm29file(Exapy.exaPy):
+class bm29file(exapy.ExaPy):
     """classe file di BM29 dovrebbe aprire un file leggerlo leggere le
     informazioni dei commenti. ha delle funzioni per il calcolo della derivata prima
     e dell angolo del monocromatore per ogni punto di enegia \n
@@ -228,6 +228,7 @@ class bm29file(Exapy.exaPy):
                self.bm29open()
           else:
               print "porca troia"
+          super(bm29file, self).__init__(energy=self.E, mu=self.Mu)
  
 
 
@@ -370,7 +371,7 @@ class bm29file(Exapy.exaPy):
             """define an A attribute with monochromator angle position
             corrisponding to each energy point of the spectra """
             self.A = scipy.rad2deg(scipy.arcsin((1.23984E-6/(self.E))*1E10/(2*self.dspac)))
-    def bm29splE(self, L1=None, L2=None, s=0):
+    def __bm29splE__(self, L1=None, L2=None, s=0):
             """ spline interpolation of Mu spectra in the range L1 L2
             define an attribute E_splineMu conteining a spline object """
             if L1==self.E[0]: L1=None
@@ -386,7 +387,7 @@ class bm29file(Exapy.exaPy):
             define an attribute E_splineNor conteining a spline object  """
             if not hasattr(self, 'Nor'): self.XANES_Norm()
             self.E_splineNor = interpolate.splrep(self.E,self.Nor,xb=L1, xe=L2 , s=s)
-    def bm29splRef(self, L1=None, L2=None, s=0):
+    def __bm29splRef__(self, L1=None, L2=None, s=0):
             """ spline interpolation of ref Mu spectra in the range L1 L2
             define anA attribute E_splineMu conteining a spline object """
             self.E_splineRef = interpolate.splrep(self.E,self.ref,xb=L1, xe=L2,s=s)            
@@ -399,16 +400,16 @@ class bm29file(Exapy.exaPy):
             """
             #if not hasattr(self, 'E_splineMu'): self.bm29splE( L1, L2, s)
             if spline:
-                self.bm29splE(L1, L2, s)
+                self.__bm29splE__(L1, L2, s)
             if sampling==None: sampling=self.E
             self.E_MuFp = interpolate.splev(sampling,self.E_splineMu,der=1)
     def bm29derRef(self, sampling=None, L1=None, L2=None):
-            if not hasattr(self, 'E_splineRef'): self.bm29splRef( L1, L2)
+            if not hasattr(self, 'E_splineRef'): self.__bm29splRef__( L1, L2)
             if sampling==None: sampling=self.E
             self.E_RefFp = interpolate.splev(sampling,self.E_splineRef,der=1)            
     def bm29int_Mu(self, L1=None, L2=None):
             """ compute the analitic integral between L1 and L2 of Mu spline"""
-            if not hasattr(self, 'E_splineMu'): self.bm29splE()
+            if not hasattr(self, 'E_splineMu'): self.__bm29splE__()
             return interpolate.splint(L1, L2, self.E_splineMum, full_output=0)
     def bm29int_Nor(self, L1=None, L2=None):
             """ compute the analitic integral between L1 and L2 of Mu Normalized spline """
