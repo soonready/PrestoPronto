@@ -369,7 +369,7 @@ class ExaPy(_Group):
         (with group member names 'k' and 'chi')"""
         args=dict(locals())#; args.update(kws)
         del args["self"],args["kws"]
-        #if args["dk"]==0: args["dk"]=1
+        if args["dk"]==0: args["dk"]=1
         if not(kmax): args["kmax"]=self.k[-1]
         xafs.xftf(self, _larch=self._larch, **args)
         return

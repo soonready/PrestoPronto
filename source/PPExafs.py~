@@ -249,6 +249,14 @@ class EXAFSparam(object):
             spectrum.EXAFS_EX(**PPsp.call_abk)
             spectrum.FT_F(kmax= 13.65, dk=0)#**PPsp.call_abk)
             spectrum.chiw=spectrum.chi*spectrum.k**int(self.kweigthp.get())
+            #except Exception as wert:    
+            #    print "proposted bad", PPsp.call_abk, "\n"
+            #    print wert, "\n"
+            #for item in self.parN:
+            #    PPsp.call_abk[item]=round(getattr(spectrum,item),2)
+            #for i in self.parN:
+            #    print "preposted",i,PPsp.call_abk[i]    
+        #print "finisch preposted"
         return
             
     def refresh(self):
@@ -270,8 +278,6 @@ class EXAFSparam(object):
         
         self.grap_winF.figsub.clear()        
         self.grap_winF.plot(self.num)
-        self.grap_winF.figsub.set_xlim(0,6)
-        self.grap_winF.figsub.set_ylim(0,None)        
         self.grap_winF.paramplot([PPsp.call_abk["rbkg"]], ["r"],["rbkg"])
         self.grap_winF.panor(self.num)
         
