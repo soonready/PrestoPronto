@@ -41,7 +41,7 @@ __verbose__=False#True#
 global num_deriv
 num_deriv=True
 
-PPsp=PPset.spectra
+
 
 
 from matplotlib.backends.backend_tkagg import  cursors
@@ -62,19 +62,19 @@ class EXAFSparam(object):
        #--------------------------   Define--------------------------------------------------
         self.num=0
         
-        if PPsp.call_abk["e0"]: self._Eop.set(PPsp.call_abk["e0"]) 
-        else:      self._Eop.set("Ifeffit default")   
+        if PPset.spectra.call_abk["e0"]: self._Eop.set(PPset.spectra.call_abk["e0"]) 
+        else:      self._Eop.set("default")   
         
-        if PPsp.call_abk["kmin"]: self._skmin.set(PPsp.call_abk["kmin"])
+        if PPset.spectra.call_abk["kmin"]: self._skmin.set(PPset.spectra.call_abk["kmin"])
         else:      self._skmin.set(0)
         
-        if PPsp.call_abk["kmax"]: self._skmax.set(PPsp.call_abk["kmax"]) 
-        else:      self._skmax.set("Ifeffit default") 
+        if PPset.spectra.call_abk["kmax"]: self._skmax.set(PPset.spectra.call_abk["kmax"]) 
+        else:      self._skmax.set("default") 
         
-        if PPsp.call_abk["rbkg"]: self._rbkg.set(PPsp.call_abk["rbkg"]) 
+        if PPset.spectra.call_abk["rbkg"]: self._rbkg.set(PPset.spectra.call_abk["rbkg"]) 
         else:      self._rbkg.set(1)         
               
-        if PPsp.call_abk["kweight"]: self.kweigth.set(PPsp.call_abk["kweight"])
+        if PPset.spectra.call_abk["kweight"]: self.kweigth.set(PPset.spectra.call_abk["kweight"])
         else:      self.kweigth.set(1) 
         
         self.kweigthp.set(1)
@@ -134,15 +134,15 @@ class EXAFSparam(object):
         self.graphframeE.pack(side = LEFT, fill=BOTH, expand=YES)
         self.graphframeF = Frame(genitore)        
         self.graphframeF.pack(side = LEFT, fill=BOTH, expand=YES)
-        self.grap_winM=ut.ParamGraph(self.graphframeM, PPsp, "energy", ["mu", "bkg"])
-        self.grap_winE=ut.ParamGraph(self.graphframeE, PPsp, "k", ["chiw"])
-        self.grap_winF=ut.ParamGraph(self.graphframeF, PPsp, "r", ["chir_mag"])
+        self.grap_winM=ut.ParamGraph(self.graphframeM, PPset.spectra, "energy", ["mu", "bkg"])
+        self.grap_winE=ut.ParamGraph(self.graphframeE, PPset.spectra, "k", ["chiw"])
+        self.grap_winF=ut.ParamGraph(self.graphframeF, PPset.spectra, "r", ["chir_mag"])
         self.grap_winF.slider.pack_forget()
         self.grap_winE.slider.pack_forget()
         self.grap_winM.slider.pack_forget()
 
-        if (len(PPsp)>1):
-            self.slider = Scale(genitore, from_= 0, to=len(PPsp)-1,
+        if (len(PPset.spectra)>1):
+            self.slider = Scale(genitore, from_= 0, to=len(PPset.spectra)-1,
                                          command =self.panor2, 
                                          orient=VERTICAL,
                                          label= "Spectra"
@@ -207,12 +207,11 @@ class EXAFSparam(object):
                                     self._rbkg, self.kweigth]
                           
         for item in zip(self.parN,string_params):
-            value=PPsp[self.num].autobk_details.call_args[item[0]]
+            value=PPset.spectra[self.num].autobk_details.call_args[item[0]]
             if value is None:
                 item[1].set('default')
             else: 
-              item[1].set(round(
-                        PPsp[self.num].autobk_details.call_args[item[0]],2))
+              item[1].set(round(value,2))
         self.refresh()   
 
 
@@ -222,32 +221,32 @@ class EXAFSparam(object):
            return
         param_n=self.grap_winE.param_num
         Epar=['kmin','kmax']
-        PPsp.call_abk[Epar[param_n]]=round(event.xdata,2)
+        PPset.spectra.call_abk[Epar[param_n]]=round(event.xdata,2)
         Epar=['Fkmin','Fkmax']
-        PPsp.call_abk[Epar[param_n]]=round(event.xdata,2)        
+        PPset.spectra.call_abk[Epar[param_n]]=round(event.xdata,2)        
         self.panor2(self.num)
         
     def onmovingF(self, event):
         param_n=self.grap_winF.param_num
         Epar=['rbkg']
-        PPsp.call_abk[Epar[param_n]]=round(event.xdata,2)
+        PPset.spectra.call_abk[Epar[param_n]]=round(event.xdata,2)
         self.panor2(self.num)        
         
     def onmovingM(self, event):
         param_n=self.grap_winM.param_num
         Epar=['e0']
-        PPsp.call_abk[Epar[param_n]]=round(event.xdata,2)
+        PPset.spectra.call_abk[Epar[param_n]]=round(event.xdata,2)
         self.panor2(self.num)         
    #--------------------------  Function  -----------------------------------------------------         
     
     def preposted(self):
         """ perform EXAFS calc"""
         #print"pass form prposted"
-        if len(PPsp)>0:
-            spectrum=PPsp[self.num]
+        if len(PPset.spectra)>0:
+            spectrum=PPset.spectra[self.num]
             #try:
-            spectrum.EXAFS_EX(**PPsp.call_abk)
-            spectrum.FT_F(kmax= 13.65, dk=0)#**PPsp.call_abk)
+            spectrum.EXAFS_EX(**PPset.spectra.call_abk)
+            spectrum.FT_F(**PPset.spectra.call_abk)
             spectrum.chiw=spectrum.chi*spectrum.k**int(self.kweigthp.get())
         return
             
@@ -258,11 +257,11 @@ class EXAFSparam(object):
         
         self.grap_winE.figsub.clear()
         self.grap_winE.plot(self.num)
-        e0=PPsp[self.num].e0
-        k1=PPsp[self.num].autobk_details.kmin
-        k2=PPsp[self.num].autobk_details.kmax
-        k2=PPsp[self.num].autobk_details.kmax  
-        rbkg=PPsp[self.num].autobk_details.call_args['rbkg']
+        e0=PPset.spectra[self.num].e0
+        k1=PPset.spectra[self.num].autobk_details.kmin
+        k2=PPset.spectra[self.num].autobk_details.kmax
+        k2=PPset.spectra[self.num].autobk_details.kmax  
+        rbkg=PPset.spectra[self.num].autobk_details.call_args['rbkg']
         
         valuesE = numpy.array((k1,k2))
         self.grap_winE.paramplot(valuesE, ["g"]*2, ["kmin", "kmax"])
@@ -272,7 +271,7 @@ class EXAFSparam(object):
         self.grap_winF.plot(self.num)
         self.grap_winF.figsub.set_xlim(0,6)
         self.grap_winF.figsub.set_ylim(0,None)        
-        self.grap_winF.paramplot([PPsp.call_abk["rbkg"]], ["r"],["rbkg"])
+        self.grap_winF.paramplot([PPset.spectra.call_abk["rbkg"]], ["r"],["rbkg"])
         self.grap_winF.panor(self.num)
         
         self.grap_winM.figsub.clear()        
@@ -300,10 +299,10 @@ class EXAFSparam(object):
         ##########################################################################
         def check_input(Name, variable, default):
             xxx=variable.get()
-            if "default" in xxx:PPsp.call_abk[Name]=default
-            elif xxx=='None':PPsp.call_abk[Name]=default  
+            if "default" in xxx:PPset.spectra.call_abk[Name]=default
+            elif xxx=='None':PPset.spectra.call_abk[Name]=default  
             else:
-                try:   PPsp.call_abk[Name] = round(float(variable.get()),2)
+                try:   PPset.spectra.call_abk[Name] = round(float(variable.get()),2)
                 except SyntaxError:error_message(Name)
         ##########################################################################        
         check_input("e0",self._Eop,None)
@@ -312,7 +311,7 @@ class EXAFSparam(object):
         check_input("Fkmin",self._skmin,0)
         check_input("Fkmax",self._skmax,None)        
         check_input("rbkg",self._rbkg,1)
-        PPsp.call_abk["kweight"] = self.kweigth.get()
+        PPset.spectra.call_abk["kweight"] = self.kweigth.get()
         if destroy:
             self.genitore.destroy()
         return
@@ -336,7 +335,7 @@ class FTparam(object):
         self._dk          = StringVar()
         self.kweigthp= IntVar()
         
-        self.parN= [ "Fkmin", "Fkmax", "Fkweight"]
+
 
        #--------------------------   Define--------------------------------------------------
         packLabelFrame = {"side" : TOP,  "expand" : YES, "anchor" : W, "pady" : 3}
@@ -345,19 +344,19 @@ class FTparam(object):
         self.kweigthp.set(1)
 
         
-        if PPsp.param["dk"]:      self._dk.set(PPsp.param["dk"]) 
-        else:      self._dk.set("Ifeffit default")   
+        if PPset.spectra.call_xftf["dk"]:      self._dk.set(PPset.spectra.call_xftf["dk"]) 
+        else:      self._dk.set("default")   
         
-        if PPsp.param["Fkmin"]:   self._kstart.set(PPsp.param["Fkmin"])
+        if PPset.spectra.call_xftf["kmin"]:   self._kstart.set(PPset.spectra.call_xftf["kmin"])
         else:      self._kstart.set(0)
         
-        if PPsp.param["Fkmax"]:   self._kend.set(PPsp.param["Fkmax"]) 
-        else:      self._kend.set("Ifeffit default") 
+        if PPset.spectra.call_xftf["kmax"]:   self._kend.set(PPset.spectra.call_xftf["kmax"]) 
+        else:      self._kend.set("default") 
               
-        if PPsp.param["Fkweight"]:self.FTweigth.set(PPsp.param["Fkweight"])
+        if PPset.spectra.call_xftf["kweight"]:self.FTweigth.set(PPset.spectra.call_xftf["kweight"])
         else:      self.FTweigth.set(1) 
 
-        if PPsp.param["window"]:  self._FTWind.set(PPsp.param["window"])
+        if PPset.spectra.call_xftf["window"]:  self._FTWind.set(PPset.spectra.call_xftf["window"])
         else:     self._FTWind.set('kaiser')
         
        #------------------------------------------------------
@@ -425,15 +424,14 @@ class FTparam(object):
         self.graphframeE.pack(side = LEFT, fill=BOTH, expand=YES)
         self.graphframeF = Frame(genitore)        
         self.graphframeF.pack(side = LEFT, fill=BOTH, expand=YES)
-        #self.grap_winM=ut.ParamGraph(self.graphframeM, PPsp, "energy", ["mu", "bkg"])
-        self.grap_winE=ut.ParamGraph(self.graphframeE, PPsp, "k", ["chiw","kwin"])
-        self.grap_winF=ut.ParamGraph(self.graphframeF, PPsp, "r", ["chir_mag"])
+        self.grap_winE=ut.ParamGraph(self.graphframeE, PPset.spectra, "k", ["chiw","kwin"])
+        self.grap_winF=ut.ParamGraph(self.graphframeF, PPset.spectra, "r", ["chir_mag"])
         self.grap_winF.slider.pack_forget()
         self.grap_winE.slider.pack_forget()
         #self.grap_winM.slider.pack_forget()
         #
-        if (len(PPsp)>1):
-            self.slider = Scale(genitore, from_= 0, to=len(PPsp)-1,
+        if (len(PPset.spectra)>1):
+            self.slider = Scale(genitore, from_= 0, to=len(PPset.spectra)-1,
                                          command =self.panor2, 
                                          orient=VERTICAL,
                                          label= "Spectra"
@@ -442,15 +440,8 @@ class FTparam(object):
         self.grap_winE.pick=self.grap_winE.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
         self.grap_winE.release=self.grap_winE.canvas.mpl_connect('button_release_event', self.onrelease)
         self.grap_winE.canvas.mpl_connect('figure_leave_event', self.onout)
-        #self.grap_winM.pick=self.grap_winM.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
-        #self.grap_winM.release=self.grap_winM.canvas.mpl_connect('button_release_event', self.onrelease)
-        #self.grap_winM.canvas.mpl_connect('figure_leave_event', self.onout) 
         self.out=False
-        #self.preposted()  
-        #self.onrelease("pippo")
-        #self.refresh()
-        #self.refresh()
-        # new pick release link
+        self.refresh()
         genitore.wait_window()            
         
    #--------------------------  mouse Function  ----------------------------------------------------- 
@@ -477,9 +468,12 @@ class FTparam(object):
             return
         string_params= [self._kstart, self._kend]
                           
-        for item in zip(self.parN,string_params):
-            #print PPsp.param[item[0]], item[0]
-            item[1].set(round(PPsp.param[item[0]],2))
+        for item in zip(['kmin','kmax'],string_params):
+            value=PPset.spectra[self.num].xftf_details.call_args[item[0]]
+            if value is None:
+                item[1].set('default')
+            else: 
+                item[1].set(round(value,2))    
         self.refresh()   
 
 
@@ -489,7 +483,7 @@ class FTparam(object):
            return
         param_n=self.grap_winE.param_num
         Epar=['kmin','kmax']
-        PPsp.param[Epar[param_n]]=round(event.xdata,2)
+        PPset.spectra.call_xftf[Epar[param_n]]=round(event.xdata,2)
         self.panor2(self.num)
         
       
@@ -499,39 +493,40 @@ class FTparam(object):
     def preposted(self):
         """ perform EXAFS calc"""
         #print"pass form prposted"
-        if len(PPsp)>0:
-            spectrum=PPsp[self.num]
-            try:
-                spectrum.EXAFS_EX(**PPsp.param)
-                spectrum.chiw=spectrum.chi*spectrum.k**int(self.kweigthp.get())
-            except Exception as wert:    
-                print "proposted bad", PPsp.param    
-                print wert, "\n"
-            try:    
-                spectrum.FT_F(**PPsp.param)
-
-            except Exception as wert:    
-                print "proposted bad", PPsp.param
-            for item in self.parN:
-                PPsp.param[item]=round(getattr(spectrum,item),2)
-            #for i in self.parN:
-            #    print "preposted",i,PPsp.param[i]    
-        #print "finisch preposted"
+        if len(PPset.spectra)>0:
+            spectrum=PPset.spectra[self.num]
+            if not(hasattr(spectrum, 'chi')):
+                spectrum.EXAFS_EX(**PPset.spectra.call_abk)
+            spectrum.chiw=spectrum.chi*spectrum.k**int(self.kweigthp.get())    
+            ##try:
+            spectrum.FT_F(**PPset.spectra.call_xftf)
+            ##except Exception as wert:    
+              #print "proposted bad", PPset.spectra.call_xftf    
+              #print wert, "\n"
         return
             
     def refresh(self):
         """refresh picture when parameter are change in the textbox\n\n"""
         self.saveparam(destroy=False)
         self.preposted()              #perform calc#
+        spectrum=PPset.spectra[self.num]
+        
+        k1=PPset.spectra[self.num].xftf_details.call_args['kmin']
+        k2=PPset.spectra[self.num].xftf_details.call_args['kmax']
+        if not(k2): k2=spectrum.k[-1]
         
         self.grap_winE.figsub.clear()
         self.grap_winE.plot(self.num)
-        valuesE = numpy.array([PPsp.param[i] for i in ["kmin", "kmax"]])
+        valuesE = numpy.array([k1,k2])
+        maxy=max(max(spectrum.chiw),max(spectrum.kwin))*1.05
+        self.grap_winE.figsub.set_ylim(None,maxy)
         self.grap_winE.paramplot(valuesE, ["g"]*2, ["kmin", "kmax"])
         self.grap_winE.panor(self.num)
         
-        self.grap_winF.figsub.clear()        
+        self.grap_winF.figsub.clear()  
         self.grap_winF.plot(self.num)
+        self.grap_winF.figsub.set_xlim(0,6)
+        self.grap_winF.figsub.set_ylim(0,None) 
         self.grap_winF.panor(self.num)
         
         
@@ -554,17 +549,17 @@ class FTparam(object):
         ##########################################################################
         def check_input(Name, variable, default):
             xxx=variable.get()
-            if "default" in xxx:PPsp.param[Name]=default
-            elif xxx=='None':PPsp.param[Name]=default  
+            if "default" in xxx:PPset.spectra.call_xftf[Name]=default
+            elif xxx=='None':PPset.spectra.call_xftf[Name]=default  
             else:
-                try:   PPsp.param[Name] = round(float(variable.get()),2)
+                try:   PPset.spectra.call_xftf[Name] = round(float(variable.get()),2)
                 except SyntaxError:error_message(Name)
         ##########################################################################        
-        check_input("Fkmin",self._kstart,0)
-        check_input("Fkmax",self._kend,None)
+        check_input("kmin",self._kstart,0)
+        check_input("kmax",self._kend,None)
         check_input("dk",self._dk,1)
-        PPsp.param["window"] = self._FTWind.get()        
-        PPsp.param["Fkweight"] = self.FTweigth.get()
+        PPset.spectra.call_xftf["window"] = self._FTWind.get()        
+        PPset.spectra.call_xftf["kweight"] = self.FTweigth.get()
         if destroy:
             self.genitore.destroy()
         return
@@ -572,43 +567,6 @@ class FTparam(object):
 
 
     ##################
-
-
-
-
-
-
-
-
-
-
-        
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
- 
-
-
-
-
-
-
-
 
 
 ###########################################################################################clas####
@@ -706,13 +664,13 @@ class EXAFT():
         c1="#L k  chik**"+ str(w)+"\n"
         for item in self.exa_PlSa_But.comments: item.pop(); item.append(c1)
         self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
-        self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPsp]
+        self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
 
     def plot2(self):
         self.bkg_PlSa_But.plot()
         self.bkg_PlSa_But.graph.clear()
-        self.bkg_PlSa_But.graph.plot([i.E   for i in PPsp],
-                                           [i.Mu  for i in PPsp])
+        self.bkg_PlSa_But.graph.plot([i.E   for i in PPset.spectra],
+                                           [i.Mu  for i in PPset.spectra])
         self.bkg_PlSa_But.graph.plot( self.bkg_PlSa_But.x_array,
                                         self.bkg_PlSa_But.y_array)
 
@@ -721,41 +679,53 @@ class EXAFT():
         self._check_FT.get()
         #-----------------         EXAFS      ---------------------
         if self._check_exa.get():
-            w = self.kweigthplot.get()
-            for item in PPsp:
-                ceck=item.EXAFS_EX(**PPsp.param)
-            self.exa_PlSa_But.x_array= [item.k for item in PPsp]
-            self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPsp]
-            self.exa_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
-            self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
-            c1="#L k  chik**"+ str(self.kweigthplot.get())+"\n"
-            for item in self.exa_PlSa_But.comments: item.append(c1)
-            self.bkg_PlSa_But.x_array= [item.E for item in PPsp]
-            self.bkg_PlSa_But.y_array= [item.bkg for item in PPsp]
-            self.bkg_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
+            w = int(self.kweigthplot.get())
+            for item in PPset.spectra:
+                ceck=item.EXAFS_EX(**PPset.spectra.call_abk)
+            self.exa_PlSa_But.x_array= [item.k for item in PPset.spectra]
+            self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
+            self.exa_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+            self.exa_PlSa_But.title = "EXAFS chi*k**%i" %w
+            Label="\n# k  chik**%i\n" %w
+            c1='# autobk '
+            for i,key in enumerate(PPset.spectra.call_abk.keys()):
+               if i>0 and i%5==0: c1+='\n#'
+               c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_abk[key])
+                
+            
+            for item in self.exa_PlSa_But.comments: item.append(c1+Label)
+            self.bkg_PlSa_But.x_array= [item.E for item in PPset.spectra]
+            self.bkg_PlSa_But.y_array= [item.bkg for item in PPset.spectra]
+            self.bkg_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
             for item in self.bkg_PlSa_But.comments: item.append("#L E  bkg\n")
         #-----------------         FT      ---------------------
         if self._check_FT.get():
-            w = self.FTweigth.get()
-            k_min=float(eval(self._kstart.get()))
-            k_max=float(eval(self._kend.get()))
-            _dk  =float(eval(self._dk.get()))
-            for item in PPsp:
-                item.FT_F( k_min , 0 ,k_max, _dk, self.FTweigth.get(), self._FTWind.get())
-            self.FTMg_PlSa_But.x_array= [item.r for item in PPsp]
-            self.FTMg_PlSa_But.y_array= [item.mag for item in PPsp]
-            self.FTMg_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
-            self.FTMg_PlSa_But.title = "FT chi*k**"+str(w)
-            c1="#L R  FT_Mg"+str(self.FTweigth.get())+"\n"
-            for item in self.exa_PlSa_But.comments: item.append(c1)
-            self.FTMg_PlSa_But.title = "FT chi*k**"+str(w)
-            c1= "#L R  FT_Im*k**"+str(self.FTweigth.get())+"\n"
+            w = PPset.spectra.call_xftf['kweight']
+            for item in PPset.spectra:
+                item.FT_F(**PPset.spectra.call_xftf)
+            self.FTMg_PlSa_But.x_array= [item.r for item in PPset.spectra]
+            self.FTMg_PlSa_But.y_array= [item.chir_mag for item in PPset.spectra]
+            self.FTMg_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+            self.FTMg_PlSa_But.title = "FT chi*k**%i" %w
+            Label= "\n# R  FT_Im%i\n" %w
+            c1='# autobk '
+            for i,key in enumerate(PPset.spectra.call_abk.keys()):
+               if i>0 and i%5==0: c1+='\n#'
+               c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_abk[key])
+            c1+='\n# xfft\n'
+            for i,key in enumerate(PPset.spectra.call_xftf.keys()):
+               if i>0 and i%5==0: c1+='\n#'
+               c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_xftf[key])            
+               
             for item in self.FTMg_PlSa_But.comments: item.append(c1)
-            self.FTIm_PlSa_But.x_array= [item.r for item in PPsp]
-            self.FTIm_PlSa_But.y_array= [item.imag for item in PPsp]
-            self.FTIm_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
-            c1="#L R  FT_Im"+str(self.FTweigth.get())+"\n"
+            self.FTIm_PlSa_But.x_array= [item.r for item in PPset.spectra]
+            self.FTIm_PlSa_But.y_array= [item.chir_im for item in PPset.spectra]
+            self.FTIm_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
+            c1="#L R  FT_Im%i\n" %w
             for item in self.FTIm_PlSa_But.comments: item.append(c1)
+        print "\n---module EXAFS done\n"    
+            
+            
         return
 
     def EXAFSparam(self):
@@ -776,21 +746,7 @@ class EXAFT():
 
         #root.protocol("WM_DELETE_WINDOW", callback)
 
-    def saveparam(self):
-        try:     self.Eop = float(eval(self._Eop.get()))
-        except:  pass
-        self.rbkg = float(eval(self._rbkg.get()))
-        try:     self.skmax = float(eval(self._skmax.get()))
-        except:  pass
-        try:     self.skmin = float(eval(self._skmin.get()))
-        except:  pass
-        try:     self.pr_es = float(eval(self._pr_es.get()))
-        except:  pass
-        self._pr_ee.set  = float(eval(self._pr_ee.get()))
-        self._po_es.set  = float(eval(self._po_es.get()))
-        try:  self._po_ee.set  = float(eval(self._po_ee.get()))
-        except:  pass
-        self.param_win.destroy()
+
 
 
 
@@ -813,8 +769,9 @@ if __name__ == "__main__":
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up"]
    for i in filenames:
-       PPsp.append(bm29.bm29file(i))
-   x=range(1,len(PPsp)+1)    
+       PPset.spectra.append(bm29.bm29file(i))
+   PPset.spectra.header=['pippo']    
+   x=range(1,len(PPset.spectra)+1)    
    radice = Tk()
    radice.title("EXAFS GUI")
    pippo = EXAFT(radice)

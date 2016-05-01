@@ -31,20 +31,18 @@ import bm29_tools as bt
 
 import PPset
 
+
       
 global __verbose__                                                                    
 __verbose__=False#True#
 global num_deriv
 num_deriv=True
 
-PPsp=PPset.spectra
-
 
 
 from matplotlib.backends.backend_tkagg import  cursors
 class XANESparam:
     def __init__(self, genitore):
-        global x
         self.genitore=genitore
        #--------------------------   Declare--------------------------------------------------
         self._Eop= StringVar()
@@ -59,22 +57,22 @@ class XANESparam:
        #--------------------------   Define--------------------------------------------------
         self.num=0
         
-        if PPsp.call_pe["e0"]: self._Eop.set(PPsp.call_pe["e0"]) 
+        if PPset.spectra.call_pe["e0"]: self._Eop.set(PPset.spectra.call_pe["e0"]) 
         else:      self._Eop.set("Ifeffit default")   
         
-        if PPsp.call_pe["pre1"]: self._pr_es.set(PPsp.call_pe["pre1"])
+        if PPset.spectra.call_pe["pre1"]: self._pr_es.set(PPset.spectra.call_pe["pre1"])
         else:      self._pr_es.set("Ifeffit default")
         
-        if PPsp.call_pe["pre2"]: self._pr_ee.set(PPsp.call_pe["pre2"]) 
+        if PPset.spectra.call_pe["pre2"]: self._pr_ee.set(PPset.spectra.call_pe["pre2"]) 
         else:      self._pr_ee.set(-50) 
         
-        if PPsp.call_pe["norm1"]: self._po_es.set(PPsp.call_pe["norm1"])
+        if PPset.spectra.call_pe["norm1"]: self._po_es.set(PPset.spectra.call_pe["norm1"])
         else:      self._po_es.set(150)  
         
-        if PPsp.call_pe["norm2"]: self._po_ee.set(PPsp.call_pe["norm2"])
+        if PPset.spectra.call_pe["norm2"]: self._po_ee.set(PPset.spectra.call_pe["norm2"])
         else:      self._po_ee.set("Ifeffit default") 
         
-        self._n_poly.set(PPsp.call_pe["nnorm"]) 
+        self._n_poly.set(PPset.spectra.call_pe["nnorm"]) 
         
                        
        #--------------------------   Params  Entries--------------------------------------------------
@@ -132,7 +130,7 @@ class XANESparam:
        #--------------------------   Graphic win  --------------------------------------------------
         self.graphframe = Frame(genitore)        
         self.graphframe.pack(side = LEFT, fill=BOTH, expand=YES)
-        self.grap_win=ut.ParamGraph(self.graphframe, PPsp, "energy", ["mu", "pre_edge", "post_edge"])
+        self.grap_win=ut.ParamGraph(self.graphframe, PPset.spectra, "energy", ["mu", "pre_edge", "post_edge"])
         self.refresh()
         self.grap_win.pick=self.grap_win.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
         self.grap_win.release=self.grap_win.canvas.mpl_connect('button_release_event', self.onrelease)
@@ -161,32 +159,32 @@ class XANESparam:
             
         string_params= [self._pr_es,self._pr_ee,self._Eop, self._po_es, self._po_ee]
         for item in zip(self.parN[:-1],string_params):
-            value=PPsp[self.num].pre_edge_details.call_args[item[0]]
+            value=PPset.spectra[self.num].pre_edge_details.call_args[item[0]]
             if value is None:
                 item[1].set('default')
             else: 
               item[1].set(round(
-                         PPsp[self.num].pre_edge_details.call_args[item[0]],2))
+                         PPset.spectra[self.num].pre_edge_details.call_args[item[0]],2))
         self.refresh()    
 
 
     def onmoving(self, event):
         param_n=self.grap_win.param_num
         if param_n==2:                                          #nel caso di eo
-            PPsp.call_pe["e0"] = round(event.xdata,2)
+            PPset.spectra.call_pe["e0"] = round(event.xdata,2)
         else:
-            PPsp.call_pe[self.parN[param_n]]=round(
-                                       event.xdata- PPsp[self.num].e0,2)
+            PPset.spectra.call_pe[self.parN[param_n]]=round(
+                                       event.xdata- PPset.spectra[self.num].e0,2)
         self.panor2(self.num)
         
    #--------------------------  Function  -----------------------------------------------------         
     def preposted(self):
         """ perform XANES calc"""
-        if len(PPsp)>0:
+        if len(PPset.spectra)>0:
             #try:
-            PPsp[self.num].XANES_Norm(**PPsp.call_pe)
-            #except:    print "proposted bad", PPsp.call_pe
-        #PPsp.call_pe=PPsp[self.num].pre_edge_details.call_args
+            PPset.spectra[self.num].XANES_Norm(**PPset.spectra.call_pe)
+            #except:    print "proposted bad", PPset.spectra.call_pe
+        #PPset.spectra.call_pe=PPset.spectra[self.num].pre_edge_details.call_args
             
     def refresh(self):
         "refresh picture when parameter are change in the textbox"
@@ -194,11 +192,11 @@ class XANESparam:
         self.saveparam(destroy=False)
         self.preposted()              #perform calc#
         self.grap_win.plot(self.num)
-        e0=PPsp[self.num].e0
-        p1=PPsp[self.num].pre_edge_details.pre1
-        p2=PPsp[self.num].pre_edge_details.pre2
-        n1=PPsp[self.num].pre_edge_details.norm1
-        n2=PPsp[self.num].pre_edge_details.norm2
+        e0=PPset.spectra[self.num].e0
+        p1=PPset.spectra[self.num].pre_edge_details.pre1
+        p2=PPset.spectra[self.num].pre_edge_details.pre2
+        n1=PPset.spectra[self.num].pre_edge_details.norm1
+        n2=PPset.spectra[self.num].pre_edge_details.norm2
         values = numpy.array((e0+p1, e0+p2, e0, e0+n1, e0+n2))
         self.grap_win.paramplot(values, ["g"]*2+["k"]+["r"]*2, self.parN[:-1])
         self.grap_win.panor(self.num)
@@ -224,10 +222,10 @@ class XANESparam:
         ##########################################################################
         def check_input(Name, variable, default):
             xxx=variable.get()
-            if "default" in xxx:PPsp.call_pe[Name]=default
-            elif xxx=='None':PPsp.call_pe[Name]=default  
+            if "default" in xxx:PPset.spectra.call_pe[Name]=default
+            elif xxx=='None':PPset.spectra.call_pe[Name]=default  
             else:
-                try:   PPsp.call_pe[Name] = round(float(variable.get()),2)
+                try:   PPset.spectra.call_pe[Name] = round(float(variable.get()),2)
                 except SyntaxError:error_message(Name)
         ##########################################################################        
         check_input("e0",self._Eop,None)
@@ -235,7 +233,7 @@ class XANESparam:
         check_input("pre2",self._pr_ee,-50)
         check_input("norm1",  self._po_es, 50)       
         check_input("norm2",  self._po_ee, None)        
-        PPsp.call_pe["nnorm"] = float(eval(self._n_poly.get()))
+        PPset.spectra.call_pe["nnorm"] = float(eval(self._n_poly.get()))
         if destroy:
             self.genitore.destroy()
             #self.param_win.destroy()
@@ -323,7 +321,7 @@ class DERIVparam_c:
       #--------------------------   Graph --------------------------------------------------        
         self.graphframe_der = Frame(self.genitore)        
         self.graphframe_der.pack(side = LEFT, fill=BOTH)
-        self.grap_win_der=ut.ParamGraph(self.graphframe_der, PPsp, "x_int", ["deriv"])
+        self.grap_win_der=ut.ParamGraph(self.graphframe_der, PPset.spectra, "x_int", ["deriv"])
         self.refresh_der()
         self.grap_win_der.slider.configure(command= self.panor2_der)
         
@@ -340,11 +338,11 @@ class DERIVparam_c:
       
     def calc(self):
         """calculate derivative and interpoolated x"""
-        if PPsp!=[]:
-            PPsp[self.num_der].bm29Num_der(window_len=self.smoot, step=self.interpolation,
+        if len(PPset.spectra)!=0:
+            PPset.spectra[self.num_der].bm29Num_der(window_len=self.smoot, step=self.interpolation,
                                               L1=self.lim1,L2=self.lim2, repeat=self.smoot_repeat)
-            PPsp[self.num_der].deriv=PPsp[self.num_der].NumDer.deriv
-            PPsp[self.num_der].x_int=PPsp[self.num_der].NumDer.x_int          
+            PPset.spectra[self.num_der].deriv=PPset.spectra[self.num_der].NumDer.deriv
+            PPset.spectra[self.num_der].x_int=PPset.spectra[self.num_der].NumDer.x_int          
     
     def panor2_der(self,event):
         self.num_der=int(event)
@@ -398,7 +396,7 @@ class DERIVparam_spline(DERIVparam_c):
         self.quadro_inter = LabelFrame(self.param_win_der, text = "interpolation")
         self.quadro_inter.pack(side = TOP,  fill = X)
         
-        self._spin_inter= Spinbox(self.quadro_inter, from_ = 0.0, to = 1.0, increment=0.1,
+        self._spin_inter= Spinbox(self.quadro_inter, from_ = 0.0, to = 1.0, increment=0.02,
                                 command= lambda x=self.num_der:  self.panor2_der(x),
                                 textvariable=self._interpolation,
                                 state= "readonly",
@@ -427,7 +425,7 @@ class DERIVparam_spline(DERIVparam_c):
       #--------------------------   Graph --------------------------------------------------        
         self.graphframe_der = Frame(self.genitore)        
         self.graphframe_der.pack(side = LEFT, fill=BOTH)
-        self.grap_win_der=ut.ParamGraph(self.graphframe_der, PPsp, "x_int", ["deriv"])
+        self.grap_win_der=ut.ParamGraph(self.graphframe_der, PPset.spectra, "x_int", ["deriv"])
         self.refresh_der()
         self.grap_win_der.slider.configure(command= self.panor2_der)
         
@@ -441,12 +439,12 @@ class DERIVparam_spline(DERIVparam_c):
         if self.interpolation !=0:
             self.x_deriv=numpy.arange(self.lim1,self.lim2,self.interpolation)
         else:    
-            self.x_deriv=bt.dat_Truncate(PPsp[0].energy, self.lim1, self.lim2)            
-        if PPsp!=[]:
-            PPsp[self.num_der].bm29derE(sampling=self.x_deriv, L1=self.lim1,
+            self.x_deriv=bt.dat_Truncate(PPset.spectra[0].energy, self.lim1, self.lim2)            
+        if len(PPset.spectra)!=0:
+            PPset.spectra[self.num_der].bm29derE(sampling=self.x_deriv, L1=self.lim1,
                                                        L2=self.lim2, s=self.smoot/100) 
-            PPsp[self.num_der].deriv=PPsp[self.num_der].E_MuFp
-            PPsp[self.num_der].x_int=self.x_deriv          
+            PPset.spectra[self.num_der].deriv=PPset.spectra[self.num_der].E_MuFp
+            PPset.spectra[self.num_der].x_int=self.x_deriv          
     
 
     def saveparam_deriv(self, destroy=True):
@@ -631,131 +629,123 @@ class XANES():
         
         
     def Perform(self):
-        param=PPsp.call_pe
+        param=PPset.spectra.call_pe
+        print 'header',hasattr(PPset.spectra, 'header')
         if self._check_deriv.get():  
             print "\n ---Derivative Calculation---" , num_deriv
             if num_deriv:    
-                for item in PPsp:
+                for item in PPset.spectra:
                     if __verbose__: print "Xanes derivative"
                     item.bm29Num_der(window_len=self.smoot, step=self.interpolation,
-                                     L1=float(self._deriv_start.get()),L2=float(self._deriv_end.get()),repeat=self.smoot_repeat)
-                self.derivate_PlSa_But.x_array= [item.NumDer.x_int for item in PPsp]
-                self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in PPsp]
-                self.derivate_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
+                                              L1=float(self._deriv_start.get()),
+                                                L2=float(self._deriv_end.get()),
+                                                       repeat=self.smoot_repeat)
+                self.derivate_PlSa_But.x_array= [item.NumDer.x_int for item in PPset.spectra]
+                self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in PPset.spectra]
+                self.derivate_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
             else:    
                 if self.interpolation !=0:
                     self.x_deriv=numpy.arange(float(self._deriv_start.get()), \
                                            float(self._deriv_end.get()),  \
                                            self.interpolation)
                 else:
-                    self.x_deriv=bt.dat_Truncate(PPsp[0].energy, \
+                    self.x_deriv=bt.dat_Truncate(PPset.spectra[0].energy, \
                                                    float(self._deriv_start.get()), \
                                                    float(self._deriv_end.get()))
-                for item in PPsp:
+                for item in PPset.spectra:
                     if __verbose__: print "Xanes derivative"
                     item.bm29derE(sampling=self.x_deriv, L1=float(self._deriv_start.get()),\
                                   L2=float(self._deriv_end.get()), s=self.smoot/100) 
-                self.derivate_PlSa_But.x_array= [self.x_deriv for item in PPsp]
-                self.derivate_PlSa_But.y_array= [item.E_MuFp for item in PPsp]
-                self.derivate_PlSa_But.comments= [item.comments[:-1] for item in PPsp]                    
+                self.derivate_PlSa_But.x_array= [self.x_deriv for item in PPset.spectra]
+                self.derivate_PlSa_But.y_array= [item.E_MuFp for item in PPset.spectra]
+                self.derivate_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]                    
                     
             for item in self.Xanes_PlSa_But.comments: 
-                c1 ="# Derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
+                c1 ="# Derivative calc. between "+ self._deriv_start.get() + \
+                                             " and "+ self._deriv_end.get()+"\n"
                 item.append(c1)
                 if num_deriv:
-                    c1 = "# Num. derivative calc.  with smoot= %1.8f ,interpolation= %1.4f, repeated444= %2d\n" %(
-                                                self.smoot, self.interpolation ,self.smoot_repeat)
+                    c1 = "# Num. derivative calc.  with smoot= %1.8f ," \
+                                   "interpolation= %1.4f, repeated444= %2d\n" %(
+                              self.smoot, self.interpolation ,self.smoot_repeat)
                 else:
-                    c1 = "# Spl derivative  calc.  with smoot= %1.8f ,interpolation= %1.4f\n" %(
+                    c1 = "# Spl derivative  calc.  with smoot= %1.8f ,"\
+                                                "interpolation= %1.4f\n" %(
                                                 self.smoot, self.interpolation)
                 item.append(c1)
                 item.append("#L E  Derivate_smot"+str(self.smoot)+"\n")    
             #-----------------Max derivate  ---------------------             
             self.Max_PlSa_But.x_array= [PPset.x]
             self.Max_PlSa_But.comments=[]                                 
-            self.Max_PlSa_But.comments.append(PPsp[0].comments[:-3])
+            self.Max_PlSa_But.comments.append(PPset.spectra.header)
             c1 ="# Max derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
             self.Max_PlSa_But.comments[0].append(c1)
             if num_deriv: 
                 c1 = "# Max derivative calc.  with smoot= %1.8f ,interpolation= %1.4f, repeated= %1.4f\n" %(
                                                 self.smoot, self.interpolation,self.smoot_repeat)
             self.Max_PlSa_But.comments[0].append(c1)
-            self.Max_PlSa_But.comments[0].append(PPsp[0].comments[-3])
-            self.Max_PlSa_But.comments[0].append(PPsp[0].comments[-2])
+            self.Max_PlSa_But.comments[0].append(PPset.spectra.header)
             self.Max_PlSa_But.comments[0].append( "#L  index   Derivate_Max\n")
-            for item in PPsp:
-                self.Max_PlSa_But.y_array= [[item.NumDer.x_int[numpy.argmax(item.NumDer.deriv)] for item in PPsp]]        
+            for item in PPset.spectra:
+                self.Max_PlSa_But.y_array= [[item.NumDer.x_int[numpy.argmax(item.NumDer.deriv)] for item in PPset.spectra]]        
         if self._check_xan.get():
             print "\n ---XANES Normalization---"            
-            for item in PPsp:
+            for item in PPset.spectra:
                 if __verbose__: print "Xanes norm"
                 item.XANES_Norm(**param)
             if __verbose__: print "Xanes norm done"
             #self._check_xan.set(0)
-            self._deriv_start.set(round(PPsp[0].e0 -50, 2))
-            self._deriv_end.set(round(PPsp[0].e0 +80, 2))            
-            self._INTxan_start.set(round(PPsp[0].e0 -50, 2))
-            self._INTxan_end.set(round(PPsp[0].e0 +80, 2))
-            self.Xanes_PlSa_But.x_array= [item.energy for item in PPsp]
+            self._deriv_start.set(round(PPset.spectra[0].e0 -50, 2))
+            self._deriv_end.set(round(PPset.spectra[0].e0 +80, 2))            
+            self._INTxan_start.set(round(PPset.spectra[0].e0 -50, 2))
+            self._INTxan_end.set(round(PPset.spectra[0].e0 +80, 2))
+            self.Xanes_PlSa_But.x_array= [item.energy for item in PPset.spectra]
             if self._xflatten.get() and True or False:
-                self.Xanes_PlSa_But.y_array= [item.norm for item in PPsp]
+                self.Xanes_PlSa_But.y_array= [item.flat for item in PPset.spectra]
             else:
-                self.Xanes_PlSa_But.y_array= [item.flat for item in PPsp]
-            self.Xanes_PlSa_But.comments= [item.comments[:-1] for item in PPsp]
-            for item in self.Xanes_PlSa_But.comments: item.append("#L E  Nor\n")
+                self.Xanes_PlSa_But.y_array= [item.norm for item in PPset.spectra]
+            self.Xanes_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+            for item in self.Xanes_PlSa_But.comments: item.append("# E  Nor\n")
             #-----------------iff e0---------------------
             self.Eo_PlSa_But.x_array= [PPset.x]
             self.Eo_PlSa_But.comments=[]
-            self.Eo_PlSa_But.comments.append(PPsp[0].comments[:-3])
+            self.Eo_PlSa_But.comments.append(PPset.spectra.header)
             ##comment
             c1 ="# Ifeffit calc. with "
-            for i in ['e0','pre1','pre2']: c1+="%s = %s, " %(i, str(PPsp.call_pe[i]))
+            for i in ['e0','pre1','pre2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
             self.Eo_PlSa_But.comments[0].append(c1)
             c2 = "# Ifeffit calc. with"
-            for i in ['norm1', 'norm2']: c1+="%s = %s, " %(i, str(PPsp.call_pe[i]))
+            for i in ['norm1', 'norm2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
             c2+=", flatted= "+str(self._xflatten.get() and True or False)
             self.Eo_PlSa_But.comments[0].append(c2)
             
-            self.Eo_PlSa_But.comments[0].append(PPsp[0].comments[-3])
-            self.Eo_PlSa_But.comments[0].append(PPsp[0].comments[-2])
-            self.Eo_PlSa_But.comments[0].append( "#L  "+ PPset.xlabel+ "  iff_Eo\n")
-            self.Eo_PlSa_But.y_array= [[item.e0 for item in PPsp]]        
+            self.Eo_PlSa_But.comments[0].append( "#  index  iff_Eo\n")
+            self.Eo_PlSa_But.y_array= [[item.e0 for item in PPset.spectra]]        
             #-----------------iff ej---------------------
             self.Ej_PlSa_But.x_array= [PPset.x]
             self.Ej_PlSa_But.comments=[]
-            self.Ej_PlSa_But.comments.append(PPsp[0].comments[:-3])
+            self.Ej_PlSa_But.comments.append(PPset.spectra.header)
             self.Ej_PlSa_But.comments[0].append(c1)
             self.Ej_PlSa_But.comments[0].append(c2)              
-            self.Eo_PlSa_But.comments[0].append(PPsp[0].comments[-3])
-            self.Eo_PlSa_But.comments[0].append(PPsp[0].comments[-2])
-            self.Eo_PlSa_But.comments[0].append( "#L  "+ PPset.xlabel+ "  iff_Ej\n")
-            self.Ej_PlSa_But.y_array= [[item.edge_step for item in PPsp]]
-            #-----------------Eo TCW---------------------
-        #if self._check_TCW.get():
-            #    self.TCWxan_PlSa_But.x_array= [PPset.x]
-            #    self.TCWxan_PlSa_But.comments=[]
-            #    self.TCWxan_PlSa_But.comments.append(PPsp[0].comments[:-3])
-            #    self.TCWxan_PlSa_But.comments[0].append( "# TCW Eo clculated with parameter %s , %s%s"
-            #                                              %(str(self._TCW_start.get()), str(self._TCW_end.get()),"\n"))
-            #    self.TCWxan_PlSa_But.comments[0].append(PPsp[0].comments[-3])
-            #    self.TCWxan_PlSa_But.comments[0].append(PPsp[0].comments[-2])
-            #    self.TCWxan_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  TCW_Eo\n")
-            #    for item in PPsp:
-            #        item.TCW_Eo= float(self._TCW_end.get()) -item.bm29int_Nor(float(eval(self._TCW_start.get())), float(eval(self._TCW_end.get())))
-            #    self.TCWxan_PlSa_But.y_array= [[item.TCW_Eo for item in PPsp]]
+            self.Eo_PlSa_But.comments[0].append( "# index  iff_Ej\n")
+            self.Ej_PlSa_But.y_array= [[item.edge_step for item in PPset.spectra]]
             #-----------------Integral---------------------
         if self._check_INT.get():
             self.INTxan_PlSa_But.x_array= [PPset.x]
             self.INTxan_PlSa_But.comments=[]
-            self.INTxan_PlSa_But.comments.append(PPsp[0].comments[:-3])
-            self.INTxan_PlSa_But.comments[0].append( "# Int Eo clculated with parameter %s , %s%s"
-                                                   %(str(self._INTxan_start.get()), str(self._INTxan_end.get()),"\n"))
-            self.INTxan_PlSa_But.comments[0].append(PPsp[0].comments[-3])
-            self.INTxan_PlSa_But.comments[0].append(PPsp[0].comments[-2])
-            self.INTxan_PlSa_But.comments[0].append( "#L  "+ xlabel+ "  Int\n")
-            for item in PPsp:
-                item.INTxan= item.bm29int_Nor(float(eval(self._INTxan_start.get())), float(eval(self._INTxan_end.get())))
-            self.INTxan_PlSa_But.y_array= [[item.INTxan for item in PPsp]]
+            self.INTxan_PlSa_But.comments.append(PPset.spectra.header)
+            self.INTxan_PlSa_But.comments[0].append( 
+                                 "# Int Eo cAlculated with parameter %s , %s%s"
+                                               %(str(self._INTxan_start.get()), 
+                                             str(self._INTxan_end.get()),"\n"))
+            self.INTxan_PlSa_But.comments[0].append( "#L  INDEX  Int\n")
+            x1=float(eval(self._INTxan_start.get()))
+            x2=float(eval(self._INTxan_end.get()))
+            if self._xflatten.get() and True or False:
+               for i in PPset.spectra:i.INTxan= i.bm29int(L1=x1, L2=x2, attribute='flat')
+            else :
+               for i in PPset.spectra:i.INTxan= i.bm29int(L1=x1, L2=x2, attribute='nor')
+            self.INTxan_PlSa_But.y_array= [[item.INTxan for item in PPset.spectra]]
         print "\n---module XANES done\n"    
 
 
@@ -777,8 +767,9 @@ if __name__ == "__main__":
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up"]
    for i in filenames:
-       PPsp.append(bm29.bm29file(i))
-   x=range(1,len(PPsp)+1)    
+       PPset.spectra.append(bm29.bm29file(i))
+       
+   PPset.x=range(1,len(PPset.spectra)+1)      
    radice = Tk()
    radice.title("XANES GUI")
    pippo = XANES(radice)

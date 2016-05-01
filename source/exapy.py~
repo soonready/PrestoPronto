@@ -53,6 +53,7 @@ from larch_plugins import xafs
 
 
 
+
 # create a larch interpreter, passed to most functions
 my_larch = larch.Interpreter(with_plugins=False)
 
@@ -82,12 +83,14 @@ class _Group(larch.Group):
             super(_Group, self).__init__(name=None, _larch=my_larch, **kws)
         return      
 #
-class ParamGroup(_Group):
-    """a class to contain parameter
-    """
-    def __repr__(self):
-        lista=dir(self)
-        return 'ParamGroup(%s)' %', '.join(lista)
+
+#
+class EmptyC(object):
+    def __init__(self,**kwg):
+        for i,item in kwg.iteritems():
+            setattr(self, i, item)
+        pass    
+            
 #
 
 def read_ascii(fname, labels=None, sort=False, sort_column=0, 
@@ -262,8 +265,9 @@ class ExaPy(_Group):
           
           Returns
           -------
-          None          
+           None          
           The following attributes will be written to the group:
+          -------
               e0          energy origin
               edge_step   edge step
               norm        normalized mu(E)
@@ -291,7 +295,7 @@ class ExaPy(_Group):
         
 
     def EXAFS_EX(self, rbkg=1, nknots=None, e0=None,
-         edge_step=None, kmin=0, kmax=None, kweight=1, dk=0,
+         edge_step=None, kmin=0, kmax=None, kweight=1, dk=0.1,
          win='hanning', k_std=None, chi_std=None, nfft=2048, kstep=0.05,
          pre_edge_kws=None, nclamp=4, clamp_lo=1, clamp_hi=1,
          calc_uncertainties=False, **kws):
@@ -330,7 +334,7 @@ class ExaPy(_Group):
              
         
 
-    def FT_F(self, kmin=0, kmax=20, kweight=0, dk=1, dk2=None, 
+    def FT_F(self, kmin=0, kmax=None, kweight=0, dk=1, dk2=None, 
              with_phase=False, window='kaiser', rmax_out=10, nfft=2048, 
              kstep=0.05, **kws ):
         """    forward XAFS Fourier transform, from chi(k) to chi(R), using
@@ -369,7 +373,6 @@ class ExaPy(_Group):
         (with group member names 'k' and 'chi')"""
         args=dict(locals())#; args.update(kws)
         del args["self"],args["kws"]
-        if args["dk"]==0: args["dk"]=1
         if not(kmax): args["kmax"]=self.k[-1]
         xafs.xftf(self, _larch=self._larch, **args)
         return
@@ -421,56 +424,29 @@ class ExaPy(_Group):
         xafs.xftr(self, _larch=self._larch, **args)
         return
         
-    def _oneshellpar(self, label="0", amp=1, del_e0=0, sig2=0.003, del_r=0, vary=True):  
-        """quick do a group of parameter for a single shell
-        Parameters
-        ---------
-           label: a string defining number of path 
-           vary a all parameter flag"""
-           
-        if not hasattr(self, 'paramgroup'):
-            self.paramgroup=ParamGroup(_larch=self._larch)
+    def red_2_dict(self, sa_attr, subobject):
+        if sa_attr is None: 
+            sa_attr=['energy', 'mu', 'k', 'chi', 'charaters'] 
+        if subobject is None:
+            subobject= self
+        dizio={}
+        for item in sa_attr:
+            if hasattr(subobject,item):
+                value =getattr(subobject,item)
+            else: 
+                continue
+            if issubclass(value, larch.Group):
+                dizio[item]=EmptyC(**value.__dict__)
+            else:    
+               dizio[item]= getattr(subobject,item)
+        return dizio        
+        
+        
+        
 
         
-        setattr(self.paramgroup, "amp"+label,    Parameter(amp, vary=vary, 
-                                                   min=0.1, _larch=self._larch))
-        setattr(self.paramgroup, "del_e0"+label, Parameter(del_e0, vary=vary, 
-                                          min=-10, max=10, _larch=self._larch ))
-        setattr(self.paramgroup, "sig2"+label,   Parameter(sig2, vary=vary, 
-                                          min=0, max=0.08 , _larch=self._larch))
-        setattr(self.paramgroup, "del_r"+label,  Parameter(del_r, vary=vary, 
-                                       min=-.08, max=0.08 , _larch=self._larch))
-        return  
         
-        
-    def _PathsList(self,filenames,vary=True):
-        """quick do a list of path and a group of parameter associated for 
-           multiple shells
-        Parameters
-        ---------
-           filenames list of filemnames from path or a list of path class
-           label: a string defining number of path 
-           vary a all parameter flag
-        """
-        self.pathlist=list()
-        methvar = zip(['s02', 'e0', 'sigma2', 'deltar'],
-                      ["amp", "del_e0", "sig2", "del_r"])
-        
-        if all( type(i) is str for i in filenames ): 
-            for item in filenames:
-                pathtype=FeffPathGroup(filename=item,_larch=self._larch)
-                pathtype.label=pathtype.label[-8:-4]
-                if any([i.label for i in self.pathlist])==pathtype.label:
-                    pathtype.label=pathtype.label+_b
-                for meth_item, var_item in methvar: 
-                    setattr(pathtype, meth_item, var_item+pathtype.label)
-                self.pathlist.append(pathtype)       
-        elif all( type(i) is
-                larch_plugins.xafs.feffdat.FeffPathGroup for i in filenames ): 
-            self.pathlist = filenames
-        else:
-            raise Exception("filenames could be list of filenames of pathgroup") 
-        return
+
 
 
     
@@ -483,11 +459,12 @@ class ExaPy(_Group):
             else:
                 raise Exception("no defined paths to use in the fit")
         else:
-            self._PathsList(pathlist)
-        
+            self.pathlist=_PathsList(pathlist)
         #define self.paramgroup
         if pars is None:
-            for item in self.pathlist: self._oneshellpar(item.label)
+            self.paramgroup=ParamGroup(_larch=self._larch) 
+            for item in self.pathlist: 
+                _oneshellpar(item.label,paramgroup=self.paramgroup)
         else:
            self.paramgroup= pars
         #define self.transform
@@ -496,7 +473,8 @@ class ExaPy(_Group):
                 pass
             else:
                 self.transform=TransformGroup()
-        self.dataset=FeffitDataSet(data=self, pathlist=self.pathlist, 
+        data=_Group(k=self.k, chi=self.chi)        
+        self.dataset=FeffitDataSet(data=data, pathlist=self.pathlist, 
                                    transform=self.transform, _larch=self._larch)
         if fit:
             self.fit_out = feffit(params=self.paramgroup, datasets=self.dataset,
@@ -519,6 +497,45 @@ class ExaPy(_Group):
 
 
 #
+class ParamGroup(_Group):
+    """a class to contain parameters
+       show all the parameter inside
+    """
+    def __repr__(self):
+        lista=dir(self)
+        return 'ParamGroup(%s)' %', '.join(lista)
+
+def _oneshellpar( label="0", amp=1, del_e0=0, sig2=0.003, del_r=0, vary=True,
+                 paramgroup=None):  
+    """quick do a group of parameter for a single shell
+    Parameters
+    ---------
+       If a paramgroup is in input 
+          return the refreshed paramgroup otherwise return a paramgroup
+       label: a string defining number of path 
+       vary a all parameter flag"""
+       
+    ritorna=False
+    if paramgroup is None:
+        paramgroup=ParamGroup(_larch=my_larch)
+        ritorna=True
+    if vary is True:  vary=[True, True, True, True]
+    if vary is False: vary=[False, False, False, False]
+    if type(vary)==type(list):
+        if len(vary)!=4: raise ValueError('only 4 argument')
+        
+    setattr(paramgroup, "amp"+label,    Parameter(amp, vary=vary[0], 
+                                               min=0.05, _larch=my_larch))
+    setattr(paramgroup, "del_e0"+label, Parameter(del_e0, vary=vary[1], 
+                                      min=-10, max=10, _larch=my_larch ))
+    setattr(paramgroup, "sig2"+label,   Parameter(sig2, vary=vary[2], 
+                                      min=0, max=0.08 , _larch=my_larch))
+    setattr(paramgroup, "del_r"+label,  Parameter(del_r, vary=vary[3, 
+                                   min=-.08, max=0.08 , _larch=my_larch))
+    
+    if ritorna: return paramgroup
+    return  
+
 class Parameter(larch.Parameter):
     """ returns a parameter object: a floating point value with bounds that can
     be flagged as a variable for a fit, or given an expression to use to
@@ -540,6 +557,7 @@ class Parameter(larch.Parameter):
         super(Parameter, self).__init__(**args)
         
              
+#
 def FeffPathGroup(filename=None, _larch=my_larch, label=None, s02=None,
              degen=None, e0=None,ei=None, deltar=None, sigma2=None,
              third=None, fourth=None):
@@ -574,6 +592,32 @@ def FeffPathGroup(filename=None, _larch=my_larch, label=None, s02=None,
     return x
 
 
+def _PathsList(filenames,labels=None):
+        """quick do a list of path and a group of parameter associated for 
+           multiple shells
+        Parameters
+        ---------
+           filenames: list of filemnames from path or a list of path class
+           label: a string defining number of path 
+           vary a all parameter flag
+        """
+        pathlist=list()
+        methvar = zip(['s02', 'e0', 'sigma2', 'deltar'],              #nome variabili
+                      ["amp", "del_e0", "sig2", "del_r"])             #nome parameter
+        
+        for j,item in enumerate(filenames):
+            pathtype=FeffPathGroup(filename=item,_larch=my_larch)
+            if labels is None:
+                pathtype.label=pathtype.label[-8:-4]
+                if any([i.label for i in pathlist])==pathtype.label:
+                    pathtype.label=pathtype.label+'_b'
+            else:
+                pathtype.label='_%'%(label)
+            for meth_item, var_item in methvar: 
+                setattr(pathtype, meth_item, var_item+pathtype.label)
+            pathlist.append(pathtype)       
+        return pathlist
+#
 class TransformGroup(xafs.TransformGroup):
     """A Group of transform parameters.
     The apply() method will return the result of applying the transform,

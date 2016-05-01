@@ -40,12 +40,15 @@ from scipy import interpolate
 
 
 def string_range(string):
-    """define a listi fo selected number starting from 1
-       the character allowed are , to define different ranges 
-       and - to define a ranges
+    """define a list with selected number starting from 1
+       the character allowed are:
+       ',' to define different ranges 
+       '-' to define a ranges
+       ex:
+       string_range('1-5,7-9)
     """
     select=[]
-    ranges=string.split()
+    ranges=string.split(',')
     for item in ranges:
         if item.find('-')<0:
             select.append(int(item)-1)
@@ -485,7 +488,7 @@ class Graph:
        if (title): self.figsub.set_title(title)
        self.toolbar.update()
        step=x_array[0][1]-x_array[0][1]
-       print step
+       #print step
        self.figsub.set_xlim(xmin=x_array[0][0]-step, xmax=x_array[0][-1]+step)
        self.canvas.draw()
        self.figsub.set_autoscale_on(False)

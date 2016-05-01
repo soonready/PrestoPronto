@@ -1,0 +1,5 @@
+ Ti<->O Single Scatering                                Feff 6L.02    potph 4.12
+ Abs   Z=22 Rmt= 0.950 Rnm= 1.351 K shell
+ Pot 1 Z= 8 Rmt= 0.860 Rnm= 1.223
+ Gam_ch=9.067E-01 H-L exch
+ Mu=-2.901E+00 kf=2.063E+00 Vint=-1.912E+01 Rs_int= 1.758

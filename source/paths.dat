@@ -1,0 +1,8 @@
+ Ti<->O Single Scatering
+ Rmax  2.2100,  keep limit  0.000, heap limit  0.000    Feff 6L.02    paths 3.05
+ Plane wave chi amplitude filter   2.50%
+ -------------------------------------------------------------------------------
+     1    2   4.000  index, nleg, degeneracy, r=  1.8100
+      x           y           z     ipot  label      rleg      beta        eta
+   -1.045000   -1.045000    1.045000   1 'O     '     1.8100  180.0000    0.0000
+    0.000000    0.000000    0.000000   0 'Ti    '     1.8100  180.0000    0.0000

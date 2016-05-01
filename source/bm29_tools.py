@@ -44,6 +44,7 @@ def spectra_average(lista_spetra):
     """a function that average several spectra stored in a list
     lista_spetra. Each element of the list must contain in position 0 
     the x_array and in position 1 the y_array
+    it make an interpolation for each spectra
     """
     x0= lista_spetra[0][0]    
     x_array=[item[0] for item in lista_spetra]

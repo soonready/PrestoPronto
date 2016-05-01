@@ -1,0 +1,17 @@
+* This file created by Quando ho un nome te lo dico   
+TITLE Ti<->O Single Scatering 
+HOLE     1   1.0
+CONTROL  1 1 1 1 1 1
+PRINT    1 0 0 0 0 3
+RMAX = 2.21
+POTENTIALS
+  0  22  Ti
+  1  8  O
+
+ATOMS
+ * x          y          z          ipot tag dist
+ 0.0000              0.0000         0.0000         0   Ti   0.00 
+ 1.045              1.045          1.045         1   O   1.81
+-1.045            -1.045         1.045         1   O   1.81
+-1.045             1.045        -1.045         1   O   1.81
+ 1.045              -1.045          -1.045         1   O   1.81
