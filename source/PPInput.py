@@ -15,11 +15,16 @@ from PyMca.specfile import Specfile
 
 import PPset
 
-fil_spec=PPset.filesel_spectra
+from PPset import filesel_spectra as fil_spec
 
 
 
-
+def getfloats(txt):
+    words = [w.strip() for w in txt.replace(',', ' ').split()]
+    try:
+        return [float(w) for w in words]
+    except:
+        return None    
 
 
 class Define_attt:
@@ -31,6 +36,8 @@ class Define_attt:
       #-----------------------------      Define       --------------------------------------------------
         self._name.set('T1')
         self.dying=False
+        self.pos1=pos1
+        self.pos2=pos2        
       #-----------------------------      Structure    --------------------------------------------------        
         self.attr = Frame(genitore)
         self.attr.pack(side=TOP, expand=YES, fill=X, anchor=N)
@@ -103,14 +110,13 @@ class Column_Window:
     def __init__(self,filenames):
       #--------------------------   Declare-------------------------------------------------
         self.filenames=filenames
-        self._ChaCom=StringVar()
+        #self._ChaCom=StringVar()
         self._mode=StringVar()
         
         self._ChaSpl=StringVar()
       #--------------------------   Define--------------------------------------------------  
         self.column_names=["E", "Mu", "Ref", "I0", "I1", "I2"]
         self.column_list=[]
-        self._ChaCom.set("#")
         self._mode.set("transmission")
         
         self._ChaSpl.set('=:,')
@@ -132,15 +138,15 @@ class Column_Window:
         self.win_comment.pack(side=TOP,expand=YES)
         self.win_comment.focus()
 
-        Label(self.win_comment,text="Comment character").grid(row= 0, column=0) 
-        self.Entry_Value =Entry(self.win_comment, textvariable =  self._ChaCom, width=8, justify=CENTER )
-        self.Entry_Value.grid(row= 0, column=1) 
-        self.Reload_B = Button(self.win_comment, text="Reload array" ,
-                                      command = self.load,
-                                      background = "Violet",
-                                      width = 13,
-                                      padx = "3m",
-                                      pady = "2m").grid(row= 0, column=2)
+        #Label(self.win_comment,text="Comment character").grid(row= 0, column=0) 
+        #self.Entry_Value =Entry(self.win_comment, textvariable =  self._ChaCom, width=8, justify=CENTER )
+        #self.Entry_Value.grid(row= 0, column=1) 
+        #self.Reload_B = Button(self.win_comment, text="Reload array" ,
+        #                              command = self.load,
+        #                              background = "Violet",
+        #                              width = 13,
+        #                              padx = "3m",
+        #                              pady = "2m").grid(row= 0, column=2)
       #--------------------------   Params  Entries--------------------------------------------------
         self.win_column = Frame(self.top_con)
         self.win_column.pack(side=TOP,expand=YES)
@@ -203,32 +209,14 @@ class Column_Window:
         self.top.wait_window()
       #--------------------------   Function --------------------------------------------------
     
-    def read_comment(self,n_file):
-        with  open(n_file) as infile:
-            comment=[]
-            CC=self._ChaCom.get()
-            while CC==self._ChaCom.get():
-                comment.append(infile.readline())
-                CC=comment[-1][0]
-        for j,itemline in enumerate(comment):
-            for itemchar in self._ChaSpl.get():
-                itemline=itemline.replace(itemchar,' ')
-            comment[j]=itemline.split()    
-        #comment=comment[:-1]
-        #comment=comment if comment!=[] else ["# Generic\n"]
-        #comment.append("# spectra  "+n_file+ "\n")
-        #comment.append("#  ---------------------------------"+ "\n")
-        #comment.append("#L E  Mu"+ "\n") 
-        return comment         
+
             
     
     def load(self):
         if self.column_list==[]:
-            try:
-                self.array=numpy.loadtxt(fname=self.filenames[0],comments=self._ChaCom.get())
-            except:
-                print  "\n"*5+"ERROR-----"*10+"\n\nERROR  change comment character\n\n"+"ERROR-----"*10+"\n"*5 
-                return                
+            with open(self.filenames[0]) as f: data=f.readlines()
+            header=[item for item in data[0:50] if not(getfloats(item))]
+            self.array=numpy.loadtxt(fname=data,  skiprows =len(header))
             for i,item in enumerate(self.column_names):
                     self.column_list.append(Col_line_Gen(self.quadro_column, label=item, array=self.array,
                                          row=i+1))          
@@ -299,6 +287,7 @@ class Column_Window:
         self.rmenu = Menu(None, tearoff=0, takefocus=0)
         self.rmenu.add_command(label='create attr', command=self.popupattr)
         self.text.text.bind('<Button-3>',self.popup)#, add='')
+        self.text.text.tag_configure("selected", background="yellow")
         self.attribute_list=[]
         
     def popup(self,e):
@@ -311,60 +300,86 @@ class Column_Window:
     def popupattr(self):
         self.attribute_list=[i for i in self.attribute_list if not(i.dying)]
         text = self.text.text.get(SEL_FIRST, SEL_LAST)
+        self.text.text.tag_add("selected", SEL_FIRST, SEL_LAST)
         a,b= self.text.text.index(SEL_FIRST), self.text.text.index(SEL_LAST)
         self.attribute_list.append(Define_attt(self.frame_attr,text,a,b))
 
 
     def opens2(self):
-        
+        def linesplit(line): 
+            # create a line that is splitted in a list
+            for itemchar in self._ChaSpl.get():
+                line=line.replace(itemchar,' ')
+            return line.split() 
+            
         fil_spec.header=self.text.gettext()
         fil_spec.header=fil_spec.header.split('\n')
-        if not(self._ChaCom.get() is '#'):
+        fil_spec.header=[item+'\n' for item in fil_spec.header[0:PPset.max_head] 
+                                                        if not(getfloats(item))]
+        #-------------  Search if is necessary to add # in front of the file                               
+        TF=lambda x: False if x[0]=='#' else True                              
+        if any([TF(i) for i in fil_spec.header]):
             for i,item in enumerate(fil_spec.header):
                fil_spec.header[i]='#'+item
         fil_spec.header.append('# first file header relevant properties' \
                                '(sample temperature, ring current etc) could' \
-                               'be saved in the define_x tab')
-        
-        fil_spec.other_pro=dict()      
-        header=self.read_comment(self.filenames[0])
+                               'be saved in the define_x tab\n')
+        # define the attributes
+        fil_spec.other_pro=dict()
+        texto=self.text.gettext().split('\n')
         for item in self.attribute_list:
-            item.field=header[item.line].index(item.value)
+            item.name=item._name.get()
+            iline=linesplit(texto[item.line])
+            item.field=iline.index(item.value)
             fil_spec.other_pro[item._name.get()]=[]
             
-
+        #Define correspondance col position   
         cols=numpy.array(map(int,[item._position.get() for item in 
                             self.column_list if item._check.get()]))-1
-        colsname=[item._label for item in self.column_list if 
+        colsname=[item._label for item in self.column_list if
                                                              item._check.get()]
-                                             
-        for item in self.filenames:
-            i_array=numpy.loadtxt(fname=item,  comments=self._ChaCom.get(),
-                                                  usecols=cols).T
-            energy=i_array[colsname.index('E')].squeeze()
-            if 'Mu' in colsname:
-                mu=i_array[colsname.index('Mu')].squeeze()
-                fil_spec.append(bm29.bm29file([energy,mu]))
-            else: 
-                I0=i_array[colsname.index('I0')].squeeze() 
-                I1=i_array[colsname.index('I1')].squeeze()           
-                if self._mode.get()=="transmission":mu=numpy.log(I0/I1)
-                elif self._mode.get()=="fluorescence":mu=I1/I0
-                fil_spec.append(bm29.bm29file([energy,mu]))
-                fil_spec[-1].I0=I0
+                                                             
+        # Main cycle open all files
+
+        pb = ttk.Progressbar(self.top_attr, orient='horizontal', mode='determinate',
+                                             maximum=len(self.filenames))
+        pb.pack(side=TOP,expand=NO, fill=X,anchor=N)
+        try:
+            for j,item in enumerate(self.filenames):
+                with open(item) as f: data=f.readlines()
+                i_array=numpy.loadtxt(fname=data,  skiprows =len(fil_spec.header),
+                                                      usecols=cols).T
+                energy=i_array[colsname.index('E')].squeeze()
+                if 'Mu' in colsname:
+                    mu=i_array[colsname.index('Mu')].squeeze()
+                    fil_spec.append(bm29.bm29file([energy,mu]))
+                else: 
+                    I0=i_array[colsname.index('I0')].squeeze() 
+                    I1=i_array[colsname.index('I1')].squeeze()           
+                    if self._mode.get()=="transmission":mu=numpy.log(I0/I1)
+                    elif self._mode.get()=="fluorescence":mu=I1/I0
+                    fil_spec.append(bm29.bm29file([energy,mu]))
+                    fil_spec[-1].I0=I0
+                
+                if 'Ref' in colsname:
+                    fil_spec[-1].ref=i_array[colsname.index('Ref')].squeeze()   
+                elif ('I2' in colsname) and ('I2' in colsname):
+                    I2=i_array[colsname.index('I2')].squeeze() 
+                    I1=i_array[colsname.index('I1')].squeeze()
+                    fil_spec[-1].ref=numpy.log(I1/I2)
+                
+    
+                for item in self.attribute_list:
+                   iline=linesplit(data[item.line]) 
+                   fil_spec.other_pro[item.name].append(iline[item.field])
+                pb['value']=j
+                pb.update_idletasks()
+        except :
+            print "\n\nError reading the file {}\n".format(item)
             
-            if 'Ref' in colsname:
-                fil_spec[-1].ref=i_array[colsname.index('Ref')].squeeze()   
-            elif ('I2' in colsname) and ('I2' in colsname):
-                I2=i_array[colsname.index('I2')].squeeze() 
-                I1=i_array[colsname.index('I1')].squeeze()
-                fil_spec[-1].ref=numpy.log(I1/I2)
             
-            head=self.read_comment(item)
-            for item in self.attribute_list:
-               fil_spec.other_pro[item._name.get()].append(
-                                                    head[item.line][item.field])
-              
+               
+        # Main cycle    other_pro 
         for item in fil_spec.other_pro.keys():
             try:
                fil_spec.other_pro[item]= numpy.array(map(
@@ -372,10 +387,12 @@ class Column_Window:
             except ValueError:
                pass
         #print fil_spec.other_pro
-        deriv=max(numpy.gradient(fil_spec[0].Mu))
+        deriv=max(numpy.gradient(fil_spec[0].mu))
         dspac=  3.13467 if E<22500 else 1.63702
         for item in fil_spec: item.dspac=dspac
-        self.top.destroy()
+        pb['value']= len(self.filenames)
+        self.top.destroy()        
+
         
         
 
@@ -494,6 +511,7 @@ class Gen_QE():
     ##########################function################################################################
     def browse_command2(self):
         self.filesel.browse_command()
+        fil_spec[:]=[]
         colwin=Column_Window(self.filesel.filenames)
         #colwin.top_con.wait_window()
         self.pulsante_Defcor.configure(relief="raised")

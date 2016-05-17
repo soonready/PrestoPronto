@@ -1,4 +1,5 @@
 from   Tkinter import *
+import ttk
 import bm29                                                                           
 import numpy
 import utility as ut
@@ -8,9 +9,10 @@ import Rebin
 
 
 import PPset
+from PPset import spectra as PP_spec
+from PPset import filesel_spectra as PPfs_spec
 
-PPfs_spec=PPset.filesel_spectra
-PP_spec=PPset.spectra
+
 
 class Avesel(Rebin.REBIN): 
     def __init__(self, genitore):
@@ -122,8 +124,13 @@ class Avesel(Rebin.REBIN):
                                       padx = "3m",
                                       pady = "2m")
         self.pulsante_Aver.pack(side = LEFT, anchor = W)
-        self.Avesel_PlSa_But=ut.PloteSaveB(self.quadro_buttonp1,ext="reb" , title="Rebin")
+        self.Avesel_PlSa_But=ut.PloteSaveB(self.quadro_buttonp1,
+                                           ext="reb" , 
+                                           title="Rebin",
+                                           xlabel='energy (eV)',
+                                           ylabel='mu (abs. unit)')
         #self.Avesel_PlSa_But.Button_plot.configure( command = self.plot2)
+
 
 
     def RebinSparam(self):
@@ -138,7 +145,11 @@ class Avesel(Rebin.REBIN):
        #--------------------------   Graphic win  --------------------------------------------------
         self.graphframe = Frame(self.top)        
         self.graphframe.pack(side = TOP, fill=BOTH, expand=YES)
-        self.grap_win=ut.ParamGraph(self.graphframe, PPfs_spec, "energy", ["mu",])
+        self.grap_win=ut.ParamGraph(self.graphframe, PPfs_spec,
+                                    "energy", ["mu"],
+                                    xlabel='energy (eV)',
+                                    ylabel='mu (abs. unit)')
+        
         self.grap_win.plot(self.num)        
         self.grap_win.paramplot(self.get_param(), ["b","g","k","r","b"], 
                                 ["Min","XAN","Eo","EXAFS","Max"])
@@ -214,8 +225,9 @@ class Avesel(Rebin.REBIN):
     def Perform(self):
         PPset.spectra=PPset.listum()
         PP_spec=PPset.spectra
-        PP_spec.header=PPfs_spec.header
-        PP_spec.other_pro=PPfs_spec.other_pro
+        PP_spec.header=list(PPfs_spec.header)
+        PP_spec.other_pro=dict()
+        #print type(PPset.spectra.other_pro)
         aver = self._aver.get()
         #filesel define the index to keep
         filesel = ut.string_range(self._from_tof.get())
@@ -228,53 +240,60 @@ class Avesel(Rebin.REBIN):
         trunbef= float(eval(self.before.get()))
         trunaft= float(eval(self.after.get()))
         #print aver , start
+        #------------------Averafges------------------------------
         if self._c_aver.get() and (aver>1):
+            #progress bar
             for line in PP_spec.header:
-                if '# averaged each' in line:
-                   PP_spec.header.remove(line) 
-            PP_spec.header.append("# averaged each {0:4d} spectra,".format(aver))
+                if '# averaged each' in line:PP_spec.header.remove(line) 
+            PP_spec.header.append("# averaged each {0:4d} spectra,\n".format(aver))
             #self.lista_iter define the number of index of filesel to average
-            self.lista_iter = range(0,len(filesel),aver)
-            for item in self.lista_iter:
+            for item in range(0,len(filesel),aver):
                 list_ave=[PPfs_spec[ii] for ii in filesel[item:item+aver]]                
-                E, Mu  = bt.spectra_average([[i.E,i.Mu]for i in list_ave])
+                E, Mu  = bt.spectra_average([[i.energy,i.mu] for i in list_ave])
                 PP_spec.append(bm29.bm29file([E,Mu]))
+                
             #average properties
-            full=len(filesel)//aver*aver
             part=len(filesel)%aver
-            #print 'full {0}, part {1}, len(filesel) {2}'.format(full, part, len(filesel))
-            #print 'aver {0}'.format(aver)
+            full=len(filesel)-part            
             for option in PPfs_spec.other_pro:
                 ar_fl=PPfs_spec.other_pro[option][filesel]
-                #print ar_fl.shape, ar_fl[:full].shape
+                print ar_fl.shape, ar_fl[:full].shape
                 ar_fl_full=numpy.mean(ar_fl[:full].reshape(-1, aver), axis=1)
-                ar_fl_part=ar_fl[-part:].mean() if ar_fl[-part:].size else ar_fl[-part:] 
+                ar_fl_part=ar_fl[full+1:].mean() if part>0 else [] 
                 PP_spec.other_pro[option]=numpy.append(ar_fl_full,ar_fl_part)
-
-        
+                
         else:
             for item  in [PPfs_spec[i] for i in filesel]:
                 data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
                 PP_spec.append(bm29.bm29file(data))
-
-
-
+            PP_spec.other_pro=dict(PPfs_spec.other_pro)    
+            
+        #------------------Truncate------------------------------
         if self._c_Trun.get():
-            PP_spec.header.append("# truncate between {0:5.9f}" \
+            PP_spec.header=[item for item in PP_spec.header if not("# truncate" in item)]
+            PP_spec.header.append("# truncate between {0:5.9f}" +\
                                    "and{1:5.9f} ".format(trunbef, trunaft))              
             for i,item in enumerate(PP_spec):
                 data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
                 data = bt.dat_Truncate(data, trunbef, trunaft)
-                PP_spec[i].E, PP_spec[i].Mu = map(numpy.ravel, 
+                PP_spec[i].energy, PP_spec[i].mu = map(numpy.ravel, 
                                                            numpy.hsplit(data,2))
                 #spectra[i]=bm29.bm29file(data)
                     
+        #------------------Rebin------------------------------        
         if self._c_Rebin.get():
-            PP_spec.header.append("# rebin with param.{0:5.7f},{1:5.7f},"\
-                                  "{2:5.7f},{3:5.7f},{4:5.7f},{5:5.7f}".format(
-                                       Eo, predg, postedg, pstep, xstep, kstep))  
+            PP_spec.header=[item for item in PP_spec.header if not('# rebin' in item)]
+            PP_spec.header.append("# rebin with param. {0:5.7f},{1:5.7f},"\
+                                  "{2:5.7f},{3:5.7f},{4:5.7f},{5:5.7f}\n".format(
+                                       Eo, predg, postedg, pstep, xstep, kstep)) 
+            
+            pb = ttk.Progressbar(self.quadro_buttonp1, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PP_spec))
+            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)
             for i,item in enumerate(PP_spec):
-                data = numpy.transpose(numpy.vstack((item.E,item.Mu)))
+                data = numpy.transpose(numpy.vstack((item.energy,item.mu)))
+                pb.step() ;pb.update_idletasks()
                 try:
                    data=bt.rebin(data, 0, Eo, predg, postedg, pstep, xstep, 
                                                  kstep, file='', msgStream=None)
@@ -284,17 +303,27 @@ class Avesel(Rebin.REBIN):
                    Label(top, text = "Rebin not performed      " + 
                                    self.rebinerror.parameter).pack(expand = YES)
                    break
-        
-        
-        
 
+            pb.destroy()
+        #------------------last options------------------------------  
         PPset.x=range(1,len(PP_spec)+1)
-        self.Avesel_PlSa_But.x_array= [item.E for item in PP_spec]
-        self.Avesel_PlSa_But.y_array= [item.Mu for item in PP_spec]
+        self.Avesel_PlSa_But.x_array= [item.energy for item in PP_spec]
+        self.Avesel_PlSa_But.y_array= [item.mu for item in PP_spec]
+        if hasattr(PPfs_spec, 'other_pro'):  
+            for option in PPfs_spec.other_pro.keys():       
+                PP_spec.header.append('# PPAttrib  {} : {} \n'.format(option, 
+                           ' '.join(map(str, PP_spec.other_pro[option]))))
         self.Avesel_PlSa_But.comments= [PP_spec.header+['# E  Mu  \n'] 
                                                             for item in PP_spec]
-        
-        print "\n---module average done---\n"       
+        print "\n---module average done---\n"
+        print  len(PPfs_spec), ' spectra of '\
+              ,len(PPfs_spec[0].energy),' points reduced to '       
+        print  len(PP_spec), ' spectra of '\
+              ,len(PP_spec[0].energy),' points\n\n'
+        #print  PPfs_spec.other_pro
+        #print  PP_spec.other_pro  
+        #print  PPset.x
+        #print  'tilen',len(PP_spec.other_pro['T1']),'ppsetxlen', len(PPset.x)
         pass
     
     
@@ -312,14 +341,17 @@ if __name__ == "__main__":
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0009_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0010_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0011_0.up",
-              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
-              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up"]
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up"]
+   filenames=filenames*2          
    for i in filenames:
        PPfs_spec.append(bm29.bm29file(i))
+   PPfs_spec.header=['# fddffgdfd\n','# questa e una prova\n']
+   PPfs_spec.other_pro={}
    PPset.x=range(1,len(PP_spec)+1)    
    radice = Tk()
    radice.title("Avesel")
    pippo = Avesel(radice)
    pippo.before.set(round(min(PPfs_spec[0].energy),2))
    pippo.after.set(round(max(PPfs_spec[0].energy),2))
+   pippo._from_tof.set("1-"+str(len(PPset.filesel_spectra)))
    radice.mainloop()    

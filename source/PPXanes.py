@@ -24,7 +24,8 @@
 # the sale, use or other dealings in this Software without prior written
 # authorization from ESRF.
 
-from   Tkinter import *                                                                       
+from   Tkinter import *
+import ttk
 import numpy
 import utility as ut
 import bm29_tools as bt
@@ -130,7 +131,9 @@ class XANESparam:
        #--------------------------   Graphic win  --------------------------------------------------
         self.graphframe = Frame(genitore)        
         self.graphframe.pack(side = LEFT, fill=BOTH, expand=YES)
-        self.grap_win=ut.ParamGraph(self.graphframe, PPset.spectra, "energy", ["mu", "pre_edge", "post_edge"])
+        self.grap_win=ut.ParamGraph(self.graphframe, PPset.spectra, "energy", 
+                                    ["mu", "pre_edge", "post_edge"],
+                                    xlabel='energy (eV)', ylabel='mu (abs. unit)')
         self.refresh()
         self.grap_win.pick=self.grap_win.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
         self.grap_win.release=self.grap_win.canvas.mpl_connect('button_release_event', self.onrelease)
@@ -517,9 +520,11 @@ class XANES():
                                       padx = "3m",
                                       pady = "2m")
         self.button_derivative_default.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
-        self.derivate_PlSa_But=ut.PloteSaveB(self.quadro_derivative, [],
-                                                             [],
-                                                             ext="Der" ,comment= None, title="DERIVATIVE")
+        self.derivate_PlSa_But=ut.PloteSaveB(self.quadro_derivative, [],[],
+                                             ext="Der" ,comment= None,
+                                             xlabel='energy (eV)',
+                                             ylabel='f\'(mu) (abs. unit)',
+                                             title="DERIVATIVE")
 
       #----------------Quadro Max Derivative-------------------------------------
         self.quadro_Max_Derivative = Frame(genitore)    #,text = "Correction"
@@ -529,7 +534,9 @@ class XANES():
         self.quadro_Max_Derivative2 = Frame(self.quadro_Max_Derivative1)
         self.quadro_Max_Derivative2.pack(side = LEFT, anchor = W, fill=X, expand =Y)
         self.Max_PlSa_But=ut.PloteSaveB(self.quadro_Max_Derivative2, [PPset.x], [],
-                                                        ext=None ,comment= None, title="Iff Eo")
+                                             ext=None , comment= None,
+                                             xlabel='spectra',ylabel='position (eV)',                                                        
+                                             title="max derivative position")
       #----------------QuadroXan-------------------------------------
         self.quadro_xanes = LabelFrame(genitore, text = "XANES Normalization")    #,text = "Correction"
         self.quadro_xanes.pack(side = TOP,  fill = X, pady= 3, ipadx = 5, ipady = 3)
@@ -545,9 +552,9 @@ class XANES():
                                       pady = "2m")
         self.button_xanes_default.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
         #ATTENZIONE
-        self.Xanes_PlSa_But=ut.PloteSaveB(self.quadro_xanes, [],
-                                                             [],
-                                                             ext="Nor" ,comment= None, title="XANES")
+        self.Xanes_PlSa_But=ut.PloteSaveB(self.quadro_xanes, [],[],
+                                   xlabel='energy (eV)',ylabel='normalized mu',    
+                                   ext="Nor" ,comment= None, title="XANES")
       #--------------------------------------iffeffit---------------------------------------------------
         self.quadro_Iffefit = Frame(genitore)    #,text = "Correction"
         self.quadro_Iffefit.pack(side = TOP,  fill = X)
@@ -556,14 +563,18 @@ class XANES():
         self.quadro_Eo1 = Frame(self.quadro_Eo)
         self.quadro_Eo1.pack(side = LEFT, anchor = W, fill=X, expand =Y)
         #ATTENZIONE
-        self.Eo_PlSa_But=ut.PloteSaveB(self.quadro_Eo1, [], [],
-                                                        ext=None ,comment= None, title="Iff Eo")
-        self.quadro_Ej = LabelFrame(self.quadro_Iffefit, text = "Ifeffit() Ej")    #,text = "Correction"
+        self.Eo_PlSa_But=ut.PloteSaveB(self.quadro_Eo1, [], [],ext=None ,
+                                       xlabel='spectra',
+                                       ylabel='position (eV)',    
+                                       comment= None, title="Iff Eo")
+        self.quadro_Ej = LabelFrame(self.quadro_Iffefit, text = "Ifeffit e0")    #,text = "Correction"
         self.quadro_Ej.pack(side = LEFT,  fill = X, expand =Y)
         self.quadro_Ej1 = Frame(self.quadro_Ej)
         self.quadro_Ej1.pack(side = LEFT, anchor = W, fill=X, expand =Y)
         self.Ej_PlSa_But=ut.PloteSaveB(self.quadro_Ej, [], [],
-                                                       ext=None ,comment= None, title="Iff Ej")
+                                       xlabel='spectra',
+                                       ylabel='Edge jump (abs. unit)' ,   
+                                       ext=None ,comment= None, title="Edge jump")
       #------------------------------------Integralof Nor. XANES
         self.quadro_INTxan = LabelFrame(genitore, text = "Integralof Nor. XANES")    #,text = "Correction"
         self.quadro_INTxan.pack(side = TOP,  fill = X, pady= 3, ipadx = 5, ipady = 3)
@@ -580,7 +591,9 @@ class XANES():
         self.quadro_INTxan2 = Frame(self.quadro_INTxan)
         self.quadro_INTxan2.pack(side = TOP, fill = X)
         self.INTxan_PlSa_But=ut.PloteSaveB(self.quadro_INTxan, [PPset.x], [],
-                                            ext=None ,comment= None, title="Integral")
+                                       xlabel='spectra',
+                                       ylabel='Integral values (abs. unit)',    
+                                       ext=None ,comment= None, title="Integral")
       #--------------------------------------Perform---------------------------------------------------
         self.quadro_perform = LabelFrame(genitore)    #,text = "Correction"
         self.quadro_perform.pack(side = BOTTOM,  fill = X, expand =YES)
@@ -630,8 +643,9 @@ class XANES():
         
     def Perform(self):
         param=PPset.spectra.call_pe
-        print 'header',hasattr(PPset.spectra, 'header')
-        if self._check_deriv.get():  
+        #-----------------Max derivate  ---------------------    
+        if self._check_deriv.get():
+            header=list(PPset.spectra.header)
             print "\n ---Derivative Calculation---" , num_deriv
             if num_deriv:    
                 for item in PPset.spectra:
@@ -642,12 +656,12 @@ class XANES():
                                                        repeat=self.smoot_repeat)
                 self.derivate_PlSa_But.x_array= [item.NumDer.x_int for item in PPset.spectra]
                 self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in PPset.spectra]
-                self.derivate_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+                self.derivate_PlSa_But.comments= [header for item in PPset.spectra]
             else:    
                 if self.interpolation !=0:
                     self.x_deriv=numpy.arange(float(self._deriv_start.get()), \
-                                           float(self._deriv_end.get()),  \
-                                           self.interpolation)
+                                              float(self._deriv_end.get()),  \
+                                              self.interpolation)
                 else:
                     self.x_deriv=bt.dat_Truncate(PPset.spectra[0].energy, \
                                                    float(self._deriv_start.get()), \
@@ -658,12 +672,12 @@ class XANES():
                                   L2=float(self._deriv_end.get()), s=self.smoot/100) 
                 self.derivate_PlSa_But.x_array= [self.x_deriv for item in PPset.spectra]
                 self.derivate_PlSa_But.y_array= [item.E_MuFp for item in PPset.spectra]
-                self.derivate_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]                    
+                self.derivate_PlSa_But.comments= [header for item in PPset.spectra]                    
                     
-            for item in self.Xanes_PlSa_But.comments: 
+            for item in self.derivate_PlSa_But.comments: 
                 c1 ="# Derivative calc. between "+ self._deriv_start.get() + \
                                              " and "+ self._deriv_end.get()+"\n"
-                item.append(c1)
+                #item.append(c1)
                 if num_deriv:
                     c1 = "# Num. derivative calc.  with smoot= %1.8f ," \
                                    "interpolation= %1.4f, repeated444= %2d\n" %(
@@ -674,10 +688,10 @@ class XANES():
                                                 self.smoot, self.interpolation)
                 item.append(c1)
                 item.append("#L E  Derivate_smot"+str(self.smoot)+"\n")    
-            #-----------------Max derivate  ---------------------             
+         
             self.Max_PlSa_But.x_array= [PPset.x]
             self.Max_PlSa_But.comments=[]                                 
-            self.Max_PlSa_But.comments.append(PPset.spectra.header)
+            self.Max_PlSa_But.comments.append(header)
             c1 ="# Max derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
             self.Max_PlSa_But.comments[0].append(c1)
             if num_deriv: 
@@ -688,13 +702,26 @@ class XANES():
             self.Max_PlSa_But.comments[0].append( "#L  index   Derivate_Max\n")
             for item in PPset.spectra:
                 self.Max_PlSa_But.y_array= [[item.NumDer.x_int[numpy.argmax(item.NumDer.deriv)] for item in PPset.spectra]]        
+
+
+
+        #-----------------XANES norm  ---------------------  
         if self._check_xan.get():
-            print "\n ---XANES Normalization---"            
+            print "\n ---XANES Normalization---"      
+            header=list(PPset.spectra.header)
+            pb = ttk.Progressbar(self.quadro_perform, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PPset.spectra))
+            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)            
             for item in PPset.spectra:
                 if __verbose__: print "Xanes norm"
+                pb.step()
+                pb.update_idletasks()
                 item.XANES_Norm(**param)
             if __verbose__: print "Xanes norm done"
+            pb.destroy()
             #self._check_xan.set(0)
+            #put some reasonable value in the other case
             self._deriv_start.set(round(PPset.spectra[0].e0 -50, 2))
             self._deriv_end.set(round(PPset.spectra[0].e0 +80, 2))            
             self._INTxan_start.set(round(PPset.spectra[0].e0 -50, 2))
@@ -704,36 +731,37 @@ class XANES():
                 self.Xanes_PlSa_But.y_array= [item.flat for item in PPset.spectra]
             else:
                 self.Xanes_PlSa_But.y_array= [item.norm for item in PPset.spectra]
-            self.Xanes_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
-            for item in self.Xanes_PlSa_But.comments: item.append("# E  Nor\n")
+            self.Xanes_PlSa_But.comments= [header for item in PPset.spectra]
+            ##comment how calculated XANES norm
+            c1 ="# Xanes normalization calc. with "
+            for i in ['e0','pre1','pre2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
+            self.Xanes_PlSa_But.comments[0].append(c1+'\n')
+            c2 = "# Xanes normalization calc. with"
+            for i in ['norm1', 'norm2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
+            c2+=", flatted= "+str(self._xflatten.get() and True or False)
+            self.Xanes_PlSa_But.comments[0].append(c2+'\n')
+            #add nuovo E Norm for all comments
+            self.Xanes_PlSa_But.comments[0].append("# E  Nor\n")
+    
             #-----------------iff e0---------------------
             self.Eo_PlSa_But.x_array= [PPset.x]
             self.Eo_PlSa_But.comments=[]
-            self.Eo_PlSa_But.comments.append(PPset.spectra.header)
+            self.Eo_PlSa_But.comments.append(list(header[:-1]))
             ##comment
-            c1 ="# Ifeffit calc. with "
-            for i in ['e0','pre1','pre2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
-            self.Eo_PlSa_But.comments[0].append(c1)
-            c2 = "# Ifeffit calc. with"
-            for i in ['norm1', 'norm2']: c1+="%s = %s, " %(i, str(PPset.spectra.call_pe[i]))
-            c2+=", flatted= "+str(self._xflatten.get() and True or False)
-            self.Eo_PlSa_But.comments[0].append(c2)
-            
             self.Eo_PlSa_But.comments[0].append( "#  index  iff_Eo\n")
             self.Eo_PlSa_But.y_array= [[item.e0 for item in PPset.spectra]]        
             #-----------------iff ej---------------------
             self.Ej_PlSa_But.x_array= [PPset.x]
             self.Ej_PlSa_But.comments=[]
-            self.Ej_PlSa_But.comments.append(PPset.spectra.header)
-            self.Ej_PlSa_But.comments[0].append(c1)
-            self.Ej_PlSa_But.comments[0].append(c2)              
-            self.Eo_PlSa_But.comments[0].append( "# index  iff_Ej\n")
+            self.Ej_PlSa_But.comments.append(list(header[:-1]))
+            self.Ej_PlSa_But.comments[0].append( "# index  iff_Ej\n")
             self.Ej_PlSa_But.y_array= [[item.edge_step for item in PPset.spectra]]
             #-----------------Integral---------------------
         if self._check_INT.get():
             self.INTxan_PlSa_But.x_array= [PPset.x]
             self.INTxan_PlSa_But.comments=[]
-            self.INTxan_PlSa_But.comments.append(PPset.spectra.header)
+            self.INTxan_PlSa_But.comments.append(list(self.Xanes_PlSa_But.comments[0]))
+                
             self.INTxan_PlSa_But.comments[0].append( 
                                  "# Int Eo cAlculated with parameter %s , %s%s"
                                                %(str(self._INTxan_start.get()), 
@@ -766,9 +794,10 @@ if __name__ == "__main__":
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0011_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up"]
+   filenames=filenames*5       
    for i in filenames:
        PPset.spectra.append(bm29.bm29file(i))
-       
+   PPset.spectra.header=['#pipppo\n','#questo eun test\n']   
    PPset.x=range(1,len(PPset.spectra)+1)      
    radice = Tk()
    radice.title("XANES GUI")

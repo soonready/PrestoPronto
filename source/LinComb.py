@@ -45,16 +45,16 @@ except:
     valid_symbol_name = _issymbol_name
 #########################################################################################################
 class standard():
-    def __init__(self, label,x,y,x0=None,  value=None, fix=False, mini=None,maxi=None,expr=None):  
+    def __init__(self, label,x,y, x0=None,  value=None, fix=False, mini=None,maxi=None,expr=None):  
         self.label=label
         self.param= lmfit.Parameter(self.label, value=value, vary=not(fix), expr=expr,
             min=mini, max=maxi)
         self.x=x
         self.y=y
         self.x0=x0
-        if x0==None:
+        if x0 is None:
             pass
-        elif all(self.x==x0): 
+        elif np.array_equal(self.x,x0): 
             self.y0=self.y
         else:
             self.spline = interpolate.splrep(x, y, s=0)
@@ -123,9 +123,13 @@ class standard_list(OrdDict):
 class LinComb():
     """
         a class for LinComb analysis 
-        as input ,x,y, standards
-        an numpy array with data n_points X   n_spectra 
+        as input x,y, standards
+        an numpy array with data n_points X n_spectra 
         standard = special class [ordered dict standard list]
+        self.x=x
+        self.y=y
+        self.standard_list= standards
+        self.D=set of all y0 per ogni standard
    """
     def __init__(self,x,y, standards):
         self.x=x
@@ -145,7 +149,6 @@ class LinComb():
             for key,dic_value in self.standards_list.iteritems():
                 if dic_value.param.value==None:
                     self.standards_list.Standard_Parameters[key].value=average
-            
         self.D= np.column_stack([self.standards_list[key].y0 for key in self.standards_list])
 
         

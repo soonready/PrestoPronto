@@ -29,7 +29,7 @@
 
 
 
-
+import ttk
 import Tkinter as Tk
 import tkFileDialog
 import bm29
@@ -39,6 +39,14 @@ __singlefile__=True
 from scipy import interpolate
 
 
+def getfloats(txt):
+    """return list of floats from a string 
+       or None
+    """
+    words = [w.strip() for w in txt.replace(',', ' ').split()]
+    try:    return [float(w) for w in words]
+    except: return None 
+    
 def string_range(string):
     """define a list with selected number starting from 1
        the character allowed are:
@@ -197,7 +205,8 @@ class Browse_filename:
             self.name=os.path.basename(self.filenames[0])
             self.labelfiletext.set(self.name)
         else:
-            self.labelfiletext.set(os.path.basename(filenames[0])+" ...... "+os.path.basename(filenames[-1]))
+            self.labelfiletext.set(os.path.basename(self.filenames[0])+
+                                " ...... "+os.path.basename(self.filenames[-1]))
         os.chdir(os.path.dirname(self.filenames[0]))
 
 
@@ -306,7 +315,7 @@ class PloteSaveB():
             self.graph = Graph(self.title)
             self.graph.errorbar(self.x_array, self.y_array,
                                     self.z_array, title= self.title,comment= comment, 
-                                    xlabel=self.xlabel,ylabel=self.ylabel)
+                                    xlabel=self.xlabel, ylabel=self.ylabel)
 
         else: 
             self.graph = Graph(self.title)
@@ -314,7 +323,8 @@ class PloteSaveB():
                 self.graph.plot(self.x_array, self.z_array, title= self.title)
             if len(self.x_array)==1 and len(self.y_array)>1:
                 self.x_array=self.x_array*len(self.x_array)
-            self.graph.plot(self.x_array, self.y_array, comment=comment, title=title)
+            self.graph.plot(self.x_array, self.y_array, comment=comment, 
+                            xlabel=self.xlabel, ylabel=self.ylabel,title=title)
             
 
 #######################################################################################################
@@ -372,12 +382,15 @@ class Browsefile_plot(PloteSaveB,Browse_filename):
     """
     define a method in wich browse and open a single file, adding a button to plot 
     """
-    def __init__(self, genitore, title_text="open file", singlefile=0,title="",legend=None):
+    def __init__(self, genitore, title_text="open file", singlefile=0,title="",
+                       xlabel=None, ylabel=None, legend=None):
         self.title=title
         self.singlefile=singlefile
         self.mioGenitore = genitore
         self.filenames = list()
         self.legend=legend
+        self.xlabel=xlabel
+        self.ylabel=ylabel
         # 'quadro_totale'
         self.quadro1=  Tk.Frame(genitore)
         self.quadro1.pack(side = Tk.TOP, expand = Tk.YES, fill = Tk.X , anchor = Tk.N,
@@ -439,6 +452,8 @@ class Browsefile_plot_mono(Browsefile_plot):
 import matplotlib
 matplotlib.interactive(False)
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, cursors
+from matplotlib.backend_bases import key_press_handler
+
 
 class Graph:
     def __init__(self,title=None):
@@ -448,10 +463,11 @@ class Graph:
         #self.top.protocol("WM_DELETE_WINDOW", self.topcallback)
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.top)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  self.top )
+        self.canvas.show()
+        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  self.top)
         self.toolbar.update()
-        self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
+        self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.figsub = self.fig.add_subplot(111)
         # to enable logaritmic plotinser the next two line
         self.canvas.mpl_connect("key_press_event", self.on_key)
@@ -459,21 +475,22 @@ class Graph:
         
     def on_key(self,event):
         """to change scale from linear to logaritm
+        Home/Reset	                        h or r or home
+        Back	                            c or left arrow or backspace
+        Forward	                            v or right arrow
+        Pan/Zoom	                        p
+        Zoom-to-rect	                    o
+        Save	                            ctrl + s
+        Toggle fullscreen	                ctrl + f
+        Close plot	                        ctrl + w
+        Constrain pan/zoom to x axis	    hold x when panning/zooming with mouse
+        Constrain pan/zoom to y axis	    hold y when panning/zooming with mouse
+        Preserve aspect ratio	            hold CONTROL when panning/zooming with mouse
+        Toggle grid	g                       when mouse is over an axes
+        Toggle x axis scale (log/linear)	L or k when mouse is over an axes
+        Toggle y axis scale (log/linear)	l when mouse is over an axes
         """
-        if str(event.key) =='l':
-            if self.figsub.get_yscale()=="log":
-                self.figsub.set_yscale("linear")
-            else:
-                self.figsub.set_yscale("log")
-        try:
-            self.figsub.set_autoscaley_on(True)
-            self.canvas.draw() 
-            #self.figsub.set_ylim(ymax = max(self.curves[0]._y),#*+.1*abs(max(self.curves[0]._y)),
-                                 #ymin = min(self.curves[0]._y))#*-.1*abs(max(self.curves[0]._y)))  
-            #self.canvas.draw() 
-        except:
-            print "pippo"
-        pass    
+        key_press_handler(event, self.canvas, self.toolbar)  
                 
 
     def errorbar(self, x_array, y_array, z_array, comment= None,title=None, ylabel= "Mu (a.u.)", xlabel="Energy (eV)"):
@@ -493,7 +510,7 @@ class Graph:
        self.canvas.draw()
        self.figsub.set_autoscale_on(False)
 
-    def plot(self, x_array, y_array, comment= None,title=None, ylabel= "", xlabel=""):
+    def plot(self, x_array, y_array, comment= None,title=None, ylabel= None, xlabel=None):
        """ycalcurves = array, calcurves = line!!!!!!!"""
        #print len(x_array)
        #print "*******************"
@@ -520,8 +537,8 @@ class Graph:
             self.curves = self.figsub.plot( x_array[0], y_array[0], label= comment[0] )  #,
             for i in  range(len(x_array)-1):
                 self.curves += self.figsub.plot(x_array[i+1], y_array[i+1], label = comment[i+1])
-       self.figsub.set_ylabel(ylabel, fontsize = 8)
-       self.figsub.set_xlabel(xlabel, fontsize = 8)
+       if ylabel:self.figsub.set_ylabel(ylabel, fontsize = 16)
+       if xlabel:self.figsub.set_xlabel(xlabel, fontsize = 16)             
        if any(comment): 
             self.figsub.legend()
        if (title): self.figsub.set_title(title)
@@ -531,7 +548,9 @@ class Graph:
        self.figsub.set_autoscale_on(False)
        if len(self.curves)>1:
            self.slider.configure(to = self.step, resolution =self.step/50)
-       self.canvas.draw()        
+       self.fig.tight_layout()    
+       self.canvas.draw()     
+
        
     def scale(self,event):
        if  hasattr(self, "calcurves"):
@@ -565,10 +584,13 @@ class ParamGraph:
     xattr= string that defining the attribute in wich is contained the abscissa
     yattr= list of strin defining the attributes for ordinates
     """
-    def __init__(self, genitore, plotting_list, xattr, yattr):    
+    def __init__(self, genitore, plotting_list, xattr, yattr,
+                  xlabel=None,ylabel=None):    
         """yxattr  list of string rappresenting attributes
            xattr just a string
         """
+        self.xlabel=xlabel
+        self.ylabel=ylabel
         self.plotting_list = plotting_list
         self.xattr, self.yattr= xattr, yattr
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
@@ -586,6 +608,7 @@ class ParamGraph:
                                          label= "Spectra from 0 to n-1"
                                          )
             self.slider.pack(side = Tk.TOP,fill = Tk.X, anchor = Tk.N,pady = 5, ipady = 0)
+
         pass
     
     
@@ -621,7 +644,10 @@ class ParamGraph:
             maxy=max(getattr(self.plotting_list[num], self.yattr[0]))
             miny=min(getattr(self.plotting_list[num], self.yattr[0])) 
         step= abs(maxy-miny)*.1
-        self.figsub.set_ylim(ymax = maxy+step,ymin=miny-step)  
+        self.figsub.set_ylim(ymax = maxy+step,ymin=miny-step)
+        if self.ylabel:self.figsub.set_ylabel(self.ylabel)
+        if self.xlabel:self.figsub.set_xlabel(self.xlabel)
+        
                  
     def paramplot(self,param,color=None, keys=None):
         self.param=param
@@ -687,6 +713,7 @@ class ParamGraph:
                 item.set_xdata(self.param[i])
                 if self.keys:
                     self.keystxt[i].set_position((float(self.param[i]), max(self.curves[0]._y)))
+        self.fig.tight_layout()            
         self.canvas.draw()
             
            

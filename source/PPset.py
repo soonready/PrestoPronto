@@ -50,8 +50,8 @@ spectra=listum()
 x=list()
 filesel_spectra=listum()
 xlabel=str()
-
 parameter=dict()
 
+max_head=50
 #with open('filename.pickle', 'rb') as handle:
 #  b = pickle.load(handle)

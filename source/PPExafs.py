@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2009 ESRF
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -134,20 +135,28 @@ class EXAFSparam(object):
         self.graphframeE.pack(side = LEFT, fill=BOTH, expand=YES)
         self.graphframeF = Frame(genitore)        
         self.graphframeF.pack(side = LEFT, fill=BOTH, expand=YES)
-        self.grap_winM=ut.ParamGraph(self.graphframeM, PPset.spectra, "energy", ["mu", "bkg"])
-        self.grap_winE=ut.ParamGraph(self.graphframeE, PPset.spectra, "k", ["chiw"])
-        self.grap_winF=ut.ParamGraph(self.graphframeF, PPset.spectra, "r", ["chir_mag"])
-        self.grap_winF.slider.pack_forget()
-        self.grap_winE.slider.pack_forget()
-        self.grap_winM.slider.pack_forget()
-
+        self.grap_winM=ut.ParamGraph(self.graphframeM, PPset.spectra,
+                                     "energy", ["mu", "bkg"], 
+                                     xlabel= '$energy (eV)$',
+                                     ylabel= '$mu (abs. unit)$' )
+        self.grap_winE=ut.ParamGraph(self.graphframeE, PPset.spectra, 
+                                     "k", ["chiw"], 
+                                     xlabel= '$k(\AA^{-1})$',
+                                     ylabel= 'kchi(k)' )
+        self.grap_winF=ut.ParamGraph(self.graphframeF, PPset.spectra, 
+                                     "r", ["chir_mag"], 
+                                     xlabel= '$R(\AA)$',
+                                     ylabel= 'FT' )
         if (len(PPset.spectra)>1):
+            self.grap_winF.slider.pack_forget()
+            self.grap_winE.slider.pack_forget()
+            self.grap_winM.slider.pack_forget()
             self.slider = Scale(genitore, from_= 0, to=len(PPset.spectra)-1,
                                          command =self.panor2, 
                                          orient=VERTICAL,
                                          label= "Spectra"
                                          )
-        self.slider.pack(side = LEFT,fill = Y, anchor = N,pady = 5, ipady = 0)
+            self.slider.pack(side = LEFT,fill = Y, anchor = N,pady = 5, ipady = 0)
         self.grap_winE.pick=self.grap_winE.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
         self.grap_winE.release=self.grap_winE.canvas.mpl_connect('button_release_event', self.onrelease)
         self.grap_winE.canvas.mpl_connect('figure_leave_event', self.onout)
@@ -260,19 +269,22 @@ class EXAFSparam(object):
         e0=PPset.spectra[self.num].e0
         k1=PPset.spectra[self.num].autobk_details.kmin
         k2=PPset.spectra[self.num].autobk_details.kmax
-        k2=PPset.spectra[self.num].autobk_details.kmax  
         rbkg=PPset.spectra[self.num].autobk_details.call_args['rbkg']
         
+        w = self.kweigthp.get()
         valuesE = numpy.array((k1,k2))
         self.grap_winE.paramplot(valuesE, ["g"]*2, ["kmin", "kmax"])
         self.grap_winE.panor(self.num)
+        self.grap_winE.figsub.set_ylabel('$k\chi(k) (\AA^{-%d})$' %w)        
         
+        w1 = self.kweigth.get()
         self.grap_winF.figsub.clear()        
         self.grap_winF.plot(self.num)
         self.grap_winF.figsub.set_xlim(0,6)
         self.grap_winF.figsub.set_ylim(0,None)        
         self.grap_winF.paramplot([PPset.spectra.call_abk["rbkg"]], ["r"],["rbkg"])
         self.grap_winF.panor(self.num)
+        self.grap_winF.figsub.set_ylabel('$FT(k^%d\chi(k)) (\AA^{-%d})$'%(w1,w1+1))
         
         self.grap_winM.figsub.clear()        
         self.grap_winM.plot(self.num) 
@@ -426,17 +438,15 @@ class FTparam(object):
         self.graphframeF.pack(side = LEFT, fill=BOTH, expand=YES)
         self.grap_winE=ut.ParamGraph(self.graphframeE, PPset.spectra, "k", ["chiw","kwin"])
         self.grap_winF=ut.ParamGraph(self.graphframeF, PPset.spectra, "r", ["chir_mag"])
-        self.grap_winF.slider.pack_forget()
-        self.grap_winE.slider.pack_forget()
-        #self.grap_winM.slider.pack_forget()
-        #
         if (len(PPset.spectra)>1):
+            self.grap_winF.slider.pack_forget()
+            self.grap_winE.slider.pack_forget()
             self.slider = Scale(genitore, from_= 0, to=len(PPset.spectra)-1,
                                          command =self.panor2, 
                                          orient=VERTICAL,
                                          label= "Spectra"
                                          )
-        self.slider.pack(side = LEFT,fill = Y, anchor = N,pady = 5, ipady = 0)
+            self.slider.pack(side = LEFT,fill = Y, anchor = N,pady = 5, ipady = 0)
         self.grap_winE.pick=self.grap_winE.canvas.mpl_connect('pick_event', self.onpick)                     # new pick release link
         self.grap_winE.release=self.grap_winE.canvas.mpl_connect('button_release_event', self.onrelease)
         self.grap_winE.canvas.mpl_connect('figure_leave_event', self.onout)
@@ -615,9 +625,13 @@ class EXAFT():
         self.spin_kweigthplot = Spinbox(self.quadro_EXA_chi, from_ = 0, to = 3,
             textvariable= self.kweigthplot, width = 1, command= self.kwrefresh)
         self.spin_kweigthplot.pack(side =LEFT, ipady =3)
-        self.bkg_PlSa_But=ut.PloteSaveB(self.quadro_EXA_bkg, ext=".chi" ,comment= None, title="background")
+        self.bkg_PlSa_But=ut.PloteSaveB(self.quadro_EXA_bkg, ext=".bkg" ,
+                                        comment= None, title="background" )
         self.bkg_PlSa_But.Button_plot.configure(command = self.plot2)
-        self.exa_PlSa_But=ut.PloteSaveB(self.quadro_EXA_chi, ext=".bkg" ,comment= None, title="Exafs")
+        self.exa_PlSa_But=ut.PloteSaveB(self.quadro_EXA_chi, ext=".chi", 
+                                        xlabel= '$k(\AA^{-1})$',
+                                        ylabel='$k\chi(k) (\AA^{-1})$', 
+                                        comment= None, title="Exafs")
 
       #-------------------------------------FT------------------------------------------------------------------------
         self.quadro_FT = LabelFrame(genitore, text = "Foward FT")    #,text = "Correction"
@@ -664,10 +678,14 @@ class EXAFT():
         c1="#L k  chik**"+ str(w)+"\n"
         for item in self.exa_PlSa_But.comments: item.pop(); item.append(c1)
         self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
+        self.exa_PlSa_But.figsub.set_ylabel('$k\chi(k) (\AA^{-%d})$' %w)
         self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
 
     def plot2(self):
-        self.bkg_PlSa_But.plot()
+        self.bkg_PlSa_But.plot(self.quadro_EXA_chi, ext=".bkg", 
+                                        xlabel= 'mu (abs. unit)' u'k (\u207B\u00B9)',
+                                        ylabel='energy (eV)'   'chi(k)', 
+                                       comment= None, title="background")
         self.bkg_PlSa_But.graph.clear()
         self.bkg_PlSa_But.graph.plot([i.E   for i in PPset.spectra],
                                            [i.Mu  for i in PPset.spectra])
@@ -680,49 +698,70 @@ class EXAFT():
         #-----------------         EXAFS      ---------------------
         if self._check_exa.get():
             w = int(self.kweigthplot.get())
+            pb_label=Label(self.quadro_perform, text='EXAFS')
+            pb_label.pack(side = LEFT,anchor = W, expand = 0, fill = None)            
+            pb = ttk.Progressbar(self.quadro_perform, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PPset.spectra))
+            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)
             for item in PPset.spectra:
                 ceck=item.EXAFS_EX(**PPset.spectra.call_abk)
+                pb.step() ; pb.update_idletasks()
+            pb_label.destroy()
+            pb.destroy()
             self.exa_PlSa_But.x_array= [item.k for item in PPset.spectra]
             self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
-            self.exa_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+            self.bkg_PlSa_But.x_array= [item.E for item in PPset.spectra]
+            self.bkg_PlSa_But.y_array= [item.bkg for item in PPset.spectra]
+            #-------------------- Define Comments
+            exaheader=list(PPset.spectra.header)
+            self.exa_PlSa_But.comments= [exaheader for item in PPset.spectra]
             self.exa_PlSa_But.title = "EXAFS chi*k**%i" %w
-            Label="\n# k  chik**%i\n" %w
+            xLabel="\n# k  chik**%i\n" %w
             c1='# autobk '
             for i,key in enumerate(PPset.spectra.call_abk.keys()):
                if i>0 and i%5==0: c1+='\n#'
                c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_abk[key])
-                
-            
-            for item in self.exa_PlSa_But.comments: item.append(c1+Label)
-            self.bkg_PlSa_But.x_array= [item.E for item in PPset.spectra]
-            self.bkg_PlSa_But.y_array= [item.bkg for item in PPset.spectra]
-            self.bkg_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
-            for item in self.bkg_PlSa_But.comments: item.append("#L E  bkg\n")
+            self.exa_PlSa_But.comments[0].append(c1+xLabel)
+            bkheader=exaheader[:-1].append("# E  bkg\n")
+            self.bkg_PlSa_But.comments= [bkheader for item in PPset.spectra]
         #-----------------         FT      ---------------------
         if self._check_FT.get():
             w = PPset.spectra.call_xftf['kweight']
+            #---------------progress bar
+            pb_label=Label(self.quadro_perform, text='FT')
+            pb_label.pack(side = LEFT,anchor = W, expand = 0, fill = None)            
+            pb = ttk.Progressbar(self.quadro_perform, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PPset.spectra))
+            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)
+            #---------------main cycle
             for item in PPset.spectra:
                 item.FT_F(**PPset.spectra.call_xftf)
+                pb.step() ;pb.update_idletasks()
+            pb_label.destroy()
+            pb.destroy()    
             self.FTMg_PlSa_But.x_array= [item.r for item in PPset.spectra]
             self.FTMg_PlSa_But.y_array= [item.chir_mag for item in PPset.spectra]
-            self.FTMg_PlSa_But.comments= [PPset.spectra.header for item in PPset.spectra]
+            self.FTIm_PlSa_But.x_array= [item.r for item in PPset.spectra]
+            self.FTIm_PlSa_But.y_array= [item.chir_im for item in PPset.spectra]
             self.FTMg_PlSa_But.title = "FT chi*k**%i" %w
-            Label= "\n# R  FT_Im%i\n" %w
+            self.FTIm_PlSa_But.title = "FT chi*k**%i" %w
+            #---------------comments
+            ftheader=list(PPset.spectra.header)
+            xLabel= "\n# R  FT_Mg%i\n" %w
             c1='# autobk '
             for i,key in enumerate(PPset.spectra.call_abk.keys()):
                if i>0 and i%5==0: c1+='\n#'
                c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_abk[key])
-            c1+='\n# xfft\n'
+            c1+='\n# xfft'
             for i,key in enumerate(PPset.spectra.call_xftf.keys()):
                if i>0 and i%5==0: c1+='\n#'
                c1+=' {kkey}:{value}'.format(kkey=key,value= PPset.spectra.call_xftf[key])            
-               
-            for item in self.FTMg_PlSa_But.comments: item.append(c1)
-            self.FTIm_PlSa_But.x_array= [item.r for item in PPset.spectra]
-            self.FTIm_PlSa_But.y_array= [item.chir_im for item in PPset.spectra]
-            self.FTIm_PlSa_But.comments= [item.comments[:-1] for item in PPset.spectra]
-            c1="#L R  FT_Im%i\n" %w
-            for item in self.FTIm_PlSa_But.comments: item.append(c1)
+            ftheader.append(c1+xLabel)
+            self.FTMg_PlSa_But.comments= [ftheader for item in PPset.spectra]
+            ftiheader=ftheader[:-1].append("\n# R  FT_I%i\n" %w)
+            self.FTIm_PlSa_But.comments= [ftheader for item in PPset.spectra]
         print "\n---module EXAFS done\n"    
             
             
@@ -768,9 +807,10 @@ if __name__ == "__main__":
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0011_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
               "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up"]
+   filenames=filenames*2           
    for i in filenames:
        PPset.spectra.append(bm29.bm29file(i))
-   PPset.spectra.header=['pippo']    
+   PPset.spectra.header=['pippo\n']    
    x=range(1,len(PPset.spectra)+1)    
    radice = Tk()
    radice.title("EXAFS GUI")

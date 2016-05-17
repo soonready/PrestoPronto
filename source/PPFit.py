@@ -24,7 +24,8 @@
 # the sale, use or other dealings in this Software without prior written
 # authorization from ESRF.
 
-from   Tkinter import *   
+from   Tkinter import *  
+from copy import deepcopy
 import ttk
 import tkFileDialog
 import numpy
@@ -94,13 +95,15 @@ class QFeffGenerate():
         self.pulsanteA.pack(side = LEFT, expand = NO, ipadx = 5, ipady = 3)
         Frame(genitore).pack(side = TOP, expand = YES, fill = X , anchor = W, ipady=2, pady=5)
         self.genpath=ut.Browse_filename(genitore, "Or select one", singlefile=1)
-        self.genpath.pulsanteA.configure(background ="pale goldenrod")
+        self.genpath.pulsanteA.configure(background ="pale goldenrod", command=self.browse)
         self.genpath.filenames=[]
         Frame(genitore).pack(side = TOP, expand = YES, fill = X , anchor = W, ipady=2, pady=10)
         Define = Button(genitore, command = self.quit,  text = "Define and Quit", background ="green")
         Define.pack(side =TOP, anchor = W, ipady=5)
 
-
+    def browse(self):
+        self.genpath.browse_command()
+        self.quit()
     def quit(self):
         self.active=False
         self.genitore.destroy()
@@ -194,7 +197,7 @@ class Path(LabelFrame):
    def browse_command2_1(self):
         Path_Quadro=Toplevel()
         path1=QFeffGenerate(Path_Quadro)
-        Path_Quadro.wm_attributes("-topmost", True)
+        #Path_Quadro.wm_attributes("-topmost", True)
         Path_Quadro.wait_window()
         pathfilnam=path1.genpath.filenames[0]
         pathname=os.path.basename(pathfilnam)
@@ -224,7 +227,7 @@ class FIT:
         self._Rend   = StringVar()            #entry for fit parameters
         self._kweigth= IntVar()               #entry for fit parameters
         self._Fspace = StringVar()            #entry for fit parameters
-        self._PlotPath = StringVar()  
+        self._PlotPath = StringVar()          # define the path in page 2 combobox
         self.PlotListPath = list()       
         self.rem_path= IntVar()               #spin remove
 
@@ -316,7 +319,8 @@ class FIT:
                                       padx = "3m",
                                       pady = "2m")
         self.button_fit_per.pack(side = LEFT, anchor = W, padx = 5, pady = 5)
-        Frame(self.quadro_perform).pack(side = LEFT, expand =Y)
+        self.framepb=Frame(self.quadro_perform)
+        self.framepb.pack(side = LEFT, expand =Y, fill=BOTH)
         self.radioframe = Frame(self.quadro_perform)
         self.radioframe.pack(side = LEFT)
         self.radio_plot_q= Radiobutton(self.radioframe, text="k", variable=self.plotfit, value="k",command = self.changeplot)
@@ -405,7 +409,7 @@ class FIT:
         self.FeffPaths=list()
         self.Params=exapy.ParamGroup()
         methvar = zip(['s02', 'e0', 'sigma2', 'deltar'],              #nome variabili
-                      ["amp_", "del_e0_", "sig2_", "-reff+del_r_"])             #nome parameter
+                      ["amp_", "del_e0_", "sig2_", "-reff+del_r_"])   #nome parameter
         
         self.PlotListPath=list()    
         for j,item in enumerate(self.Path_list):
@@ -424,34 +428,44 @@ class FIT:
                                              "del_e0":item._check_e1.get()},
                                     paramgroup=self.Params)
                 dr=getattr(self.Params, 'del_r_%s'%(str(j)))
-                setattr(dr, 'max', item.path1.reff*1.1)
-                setattr(dr, 'min', item.path1.reff*0.9)
+                setattr(dr, 'max', item.path1.reff*2)
+                setattr(dr, 'min', item.path1.reff*0.2)
                 self.PlotListPath.append('%s) %s'%(str(j), item.label_path1))
         self._PlotPath.set(self.PlotListPath[0])
         self.combo_Path_list.configure(values=self.PlotListPath)
       #---------------------------Fit --------------------------------
-        print "start the fit"
+        pb = ttk.Progressbar(self.framepb, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PPset.spectra))
+        pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)
+
+        param_label= dir(self.Params)
         for item in PPset.spectra:
             item.FIT(pathlist=self.FeffPaths, pars=self.Params, 
                      transform=PPset.spectra.TG)
+            item.paramgroup=exapy.ParamGroup(**item.paramgroup.__dict__)
+            for jtem in param_label:
+                setattr(item.paramgroup,jtem, deepcopy(getattr(self.Params,jtem)))
             if len(PPset.spectra)<10:
-                print item.fit_report 
+                print item.fit_report
+            pb.step() ; pb.update_idletasks()
+        pb.destroy()    
       #---------------------------Post Fit --------------------------------
-        self.PathVarplot(self.PlotListPath[0])
+        print '############################################\n\n'
+        fitheader=PPset.spectra.header[:]
+        # fill button for residuals rx2 and rf (red. chi2 and rfactor)
         self.rx2_PlSa_But.x_array=[PPset.x]
         self.rx2_PlSa_But.y_array=[[item.paramgroup.chi_reduced for item in PPset.spectra]]
+        fitheaderrx2=fitheader[:].append('#spectra reduced chi2\n')
+        self.rx2_PlSa_But.comments = [[fitheaderrx2]]
         self.rf_PlSa_But.x_array=[PPset.x]
-        self.rf_PlSa_But.y_array=[[item.paramgroup.rfactor for item in PPset.spectra]]        
-        
-        
-        self.Fit_PlSa_But.x_array = [item.dataset.data.r for item in PPset.spectra]
-        self.Fit_PlSa_But.y_array = [item.dataset.model.chir_mag for item in PPset.spectra]
-        self.Fit_PlSa_But.z_array = [item.dataset.data.chir_mag for item in PPset.spectra ]
-        self.Fit_PlSa_But.comments = [PPset.spectra.header for item in PPset.spectra]
-        c1="# k  FT(mag*k**"+ str(self._kweigth.get())+" exp\n"
-        for item in self.Fit_PlSa_But.comments: item.append(c1)
-        self.Fit_PlSa_But.title = "FT(chi(k)*k**%s)" %w
-        self.Fit_PlSa_But.ext =".FitFTMag"
+        self.rf_PlSa_But.y_array=[[item.paramgroup.rfactor for item in PPset.spectra]]  
+        fitheaderrf=fitheader[:].append('#spectra r-factor\n')
+        self.rf_PlSa_But.comments = [[ fitheaderrf]]
+        # fill button for experimental and fit plot
+        self.Fit_PlSa_But.comments = [fitheader for item in PPset.spectra]
+        self.changeplot()
+        self.PathVarplot(self.PlotListPath[0])
 
 
 
@@ -461,30 +475,46 @@ class FIT:
             self.Fit_PlSa_But.x_array = [item.dataset.data.r for item in PPset.spectra]
             self.Fit_PlSa_But.y_array = [item.dataset.model.chir_mag for item in PPset.spectra]
             self.Fit_PlSa_But.z_array = [item.dataset.data.chir_mag for item in PPset.spectra for item in PPset.spectra]
-            self.Fit_PlSa_But.comments = [PPset.spectra.header for item in PPset.spectra]
-            c1="# k  FT(magk**"+ str(self._kweigth.get())+"  exp\n"
-            for item in self.Fit_PlSa_But.comments: item.append(c1)
-            self.Fit_PlSa_But.title = "FT(chi(k)*k**%s)" %w
+            c1="# k  FT(magk**"+ str(self._kweigth.get())+")  exp\n"
+            self.Fit_PlSa_But.comments[0].append(c1)
+            self.Fit_PlSa_But.title = "$FT(\chi(k)*k^%d)$" %w
+            self.Fit_PlSa_But.xlabel= '$R(\AA)$'
+            self.Fit_PlSa_But.ylabel='$FT(k^%d\chi(k)) (\AA^{-%d})$'%(w,w+1)
             self.Fit_PlSa_But.ext =".FitFTMag"
         if self.plotfit.get()=="k":
             self.Fit_PlSa_But.x_array = [item.dataset.data.k for item in PPset.spectra]
             self.Fit_PlSa_But.y_array = [item.dataset.model.chi*item.dataset.model.k**w for item in PPset.spectra]
             self.Fit_PlSa_But.z_array = [item.dataset.data.chi*item.dataset.data.k**w for item in PPset.spectra]
-            self.Fit_PlSa_But.comments = [PPset.spectra.header for item in PPset.spectra]
             c1="# k  chik**"+ str(w)+"  exp\n"
-            for item in self.Fit_PlSa_But.comments: item.append(c1)
+            self.Fit_PlSa_But.comments[0].append(c1)
             self.Fit_PlSa_But.title = "chi(k)*k**%s" %w
+            self.Fit_PlSa_But.title = "$\chi(k)*k^%d$" %w
+            self.Fit_PlSa_But.xlabel= '$k(\AA^{-1})$'
+            self.Fit_PlSa_But.ylabel='$k^%d\chi(k) (\AA^{-%d})$'%(w,w)
             self.Fit_PlSa_But.ext ="Fitk"
             
+
     def PathVarplot(self, evt):
+        """
+           function activated witht 
+           the change in value of the combobox in page 2
+        """
         xset= evt
         if isinstance(xset, Event): 
                    xset=self._PlotPath.get()
         number_Path= self.PlotListPath.index(xset)    
         x_att, y_att, z_att ="x_array","y_array","z_array"
+        
         #define the path
-        dpat= lambda x,y: getattr(x.dataset.pathlist[number_Path], y)
-        for n,j in zip("ners",['s02','e0','deltar','sigma2']):
+        def dpat(name,attribute):
+            lista=list()
+            name+='_%s'%(str(number_Path))
+            for i in PPset.spectra:
+                ai=getattr(i.paramgroup, name)
+                lista.append(getattr(ai, attribute))
+            return lista        
+
+        for n,j in zip("ners",['amp', 'del_e0' , 'del_r', 'sig2']):
             #define button to configure
             pa= n+str(1)
             st_attrib = pa+"_PlSa_But"
@@ -492,12 +522,13 @@ class FIT:
             #set x
             setattr(bu_attrib, x_att, [PPset.x])
             #def y value
-            yarray = [[getattr(dpat(item,j), 'value') for item in PPset.spectra]]
+            yarray = [dpat(j, 'value')]
+            #print yarray
             setattr(bu_attrib, y_att, yarray)
-            zarray = [[getattr(dpat(item,j), 'stderr') for item in PPset.spectra]]
+            zarray = [dpat(j, 'stderr')]
             setattr(bu_attrib, z_att, zarray)
-            commentarray = ["# "+pa   for item in PPset.spectra]
-            setattr(bu_attrib, "comments", commentarray)
+            commentarray = ["# "+j+'_%s'%(str(number_Path)) for item in PPset.spectra]
+            #setattr(bu_attrib, "comments", commentarray)
             setattr(bu_attrib, "error", True)
         self.r1_PlSa_But.y_array=[numpy.array(self.r1_PlSa_But.y_array[0])+
                                     self.FeffPaths[number_Path].reff ]    
@@ -516,16 +547,67 @@ if __name__ == "__main__":
    inifile=os.path.join(path_local_data,"PrestoPronto.ini")
    inivar.read(inifile)
  
-   
-   filenames=["D:/home/cprestip/mes documents\GitHub/example/Germanium.dat",
-              "D:/home/cprestip/mes documents\GitHub/example/Germanium.dat",
-              "D:/home/cprestip/mes documents\GitHub/example/Germanium.dat",
-              "D:/home/cprestip/mes documents\GitHub/example/Germanium.dat",
-              "D:/home/cprestip/mes documents\GitHub/example/Germanium.dat"]
+   filenames=["D:\home\cprestip\mes documents\GitHub\example\Germanium.dat",
+              "D:\home\cprestip\mes documents\GitHub\example\Germanium.dat",
+              "D:\home\cprestip\mes documents\GitHub\example\Germanium.dat",
+              "D:\home\cprestip\mes documents\GitHub\example\Germanium.dat",
+              "D:\home\cprestip\mes documents\GitHub\example\Germanium.dat",
+              "D:\home\cprestip\mes documents\GitHub\example\Germanium.dat"]
+   filenames1=["D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0000_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0001_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0002_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0003_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0004_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0005_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0006_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0007_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0008_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0009_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0010_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0011_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0012_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0013_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0014_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0015_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0016_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0017_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0018_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0019_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0020_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0021_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0022_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0023_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0024_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0025_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0026_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0027_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0028_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0029_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0030_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0031_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0032_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0033_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0034_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0035_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0036_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0037_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0038_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0039_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0040_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0041_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0042_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0043_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0044_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0045_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0046_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0047_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0048_0.up",
+              "D:/home/cprestip/mes documents/data_fit/bordeaux/Run4_bordeax/Ca2Mn3O8/raw/Ca2Mn3O8_ramp1_H2_0049_0.up"]
+   #filenames=filenames*8           
    for i in filenames:
        PPset.spectra.append(bm29.bm29file(i))
    for i in PPset.spectra:
-       i.EXAFS_EX() 
+       i.EXAFS_EX(kmax=12) 
        i.FT_F()
    PPset.spectra.header=['pippo']    
    PPset.x=range(1,len(PPset.spectra)+1)    

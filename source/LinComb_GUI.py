@@ -320,10 +320,6 @@ class SETUP():
         sel=ut.string_range(self._sel.get())
         x_array=self.file_sel.x_array[0]
         start, end =  self.retr_ranges()    
-        #spectra_tot=ut.datalize(self.file_sel.spectra[0].y)
-        #for i in sel[1:]:
-        #    spectra_tot =ut.datalize(spectra_tot,self.file_sel.spectra[i].y)
-        #    spectra_tot = bt.dat_Truncate(spectra, start, end)
         Lista_Standard=LinComb.standard_list()
         def float2(x):
             try:
@@ -349,12 +345,11 @@ class SETUP():
 
         linear_comb=list()
         trunc=lambda x : bt.dat_Truncate([x_array,self.file_sel.spectra[x].y], start, end)
+        #for the column in selected spectra
         for column in sel:
             x,y=trunc(column)
             linear_comb.append(LinComb.LinComb(
                                x,y, Lista_Standard))
-            
-
 
         self.Coeff=list()
         self.Coeff_error=list()
@@ -362,6 +357,8 @@ class SETUP():
         self.total=list()
         self.total_error=list()
         self.chisq=list()
+        # non so perche??
+        linear_comb[0].solve()
         for item in linear_comb:
             item.solve()
             value=[par.param.value for par in item.standards_list.itervalues()]
@@ -563,7 +560,7 @@ class LinComb_GUI:
 
 if __name__ == "__main__":
    radice = Tk()
-   radice.title("PCA GUI")
+   radice.title("LinearCom_GUI")
    pippo = LinComb_GUI(radice)
    #radice.protocol("WM_DELETE_WINDOW", destroy)
    radice.mainloop()

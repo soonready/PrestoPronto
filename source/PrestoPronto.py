@@ -2,7 +2,7 @@
 # Purpose: Gui to perform XAFS data reduction.
 # Author: C. Prestipino based
 #
-# Copyright 2009 ESRF
+# Copyright 2016 C.Prestipino
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,27 +23,22 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-# Except as contained in this notice, the name of ESRF
-# shall not be used in advertising or otherwise to promote
-# the sale, use or other dealings in this Software without prior written
-# authorization from ESRF.
+
 
 import ttk
 from   Tkinter import *
-import tkFileDialog
 import bm29                                                                           
 import numpy
 import utility as ut
-import bm29_tools as bt
-import exapy
 import os
 import ConfigParser
 #import zipfile for zipped files
-import text
-from scipy import interpolate
-from PyMca.specfile import Specfile
+
 
 import PPset
+from PPset import spectra as PP_spec
+from PPset import filesel_spectra as PPfs_spec
+
 import PPInput
 import PPAvesel
 import PPXanes
@@ -56,7 +51,7 @@ import PPFit
 global __verbose__                                                                    
 __verbose__=False#True#
 global __version__
-__version__= "b.0.9.0"
+__version__= "b.1.0.0"
 global inivarst
 inivar=ConfigParser.ConfigParser()
 global num_deriv
@@ -118,15 +113,24 @@ class mymenu():
             writeini()
             self.genitore.quit()
     def opensfile(self):
-        global filesel_spectra
-        PPset.filesel_spectra=[]        
         filenames=ut.browse_single()
         os.chdir(os.path.dirname(filenames))
-        buffero=bm29.disperati(filenames)
-        buffero.energy=buffero.data[:,0]
-        buffero.bm29ize()
-        PPset.filesel_spectra=PPset.listum(buffero.spectra)
-        del buffero       
+        with open(filenames) as fil:
+            buffero=fil.readlines()
+        PPfs_spec.other_pro={}
+        header=[it for it in buffero[0:PPset.max_head] if not(ut.getfloats(it))]
+        attri=[it for it in header if '# PPAttrib' in it]
+        for op in attri:
+            name, line= op.split(':')
+            name= name.split('# PPAttrib')[1].strip()
+            PPfs_spec.other_pro[name]=numpy.array(ut.getfloats(line))
+        PPfs_spec.header=[it for it in header if not('# PPAttrib' in it)]    
+        
+        buffero=numpy.loadtxt(fname=buffero,  skiprows =len(header))
+        energy, data =numpy.hsplit(buffero,[1])
+        for mu in data.T:
+            PPset.filesel_spectra.append(bm29.bm29file([energy.flatten(),mu]))
+        return    
 
 
 #########################################################################################################
@@ -208,7 +212,7 @@ class Tscan:
 
         Dis_coeff=[None,None,None]
         path=list()
-        x=[]
+
 
         #menu
         self.menu=mymenu(genitore)
@@ -224,7 +228,7 @@ class Tscan:
 
         # beamline
         self.p1 = Frame(self.nb)
-        self.nb.add(self.p1 , text="beamline")
+        self.nb.add(self.p1 , text="Data input")
 
         self.nb_beamline = ttk.Notebook(self.p1)
         self.nb_beamline.pack(expand=Y, fill=Y)
@@ -233,24 +237,6 @@ class Tscan:
         self.nb_beamline.add(self.p_QE_generic, text="Generic QEXAFS")
         self.QE_gen= PPInput.Gen_QE(self.p_QE_generic)
         self.QE_gen.filesel.pulsanteA.configure(command= lambda i="QE_GEN": self.Setlimit(i))
-        #----------------------------------------------------------------------
-        #self.p_QE_spec =Frame(self.nb_beamline)  
-        #self.nb_beamline.add(self.p_QE_spec, text="SPEC single")
-        #self.QE_spec= Spec_QE(self.p_QE_spec)
-        #self.QE_spec.filesel.pulsanteA.configure(command= lambda i="SPEC": self.Setlimit(i))
-        #----------------------------------------------------------------------
-        #self.p_bm29 =Frame(self.nb_beamline) 
-        #self.nb_beamline.add(self.p_bm29, text="BM29")
-        #self.QEcal= QEcal(self.p_bm29)
-        #self.QEcal.filesel.pulsanteA.configure(command= lambda i="BM29f": self.Setlimit(i))   
-        #self.QEcal.dirsel.pulsanteA.configure(command= lambda i="BM29d": self.Setlimit(i))   
-        #----------------------------------------------------------------------
-        #self.p_samba =Frame(self.nb_beamline)  
-        #self.nb_beamline.add(self.p_samba, text="SAMBA")
-        #
-        #self.Samba= SambaQE(self.p_samba)
-        #self.Samba.filesel.pulsanteA.configure(command= lambda i="SAMBAf": self.Setlimit(i))   
-        #self.Samba.dirsel.pulsanteA.configure(command= lambda i="SAMBAd": self.Setlimit(i))   
         #----------------------------------------------------------------------
         self.p_id24 =Frame(self.nb_beamline) 
         self.nb_beamline.add(self.p_id24, text="ID24")
@@ -274,11 +260,11 @@ class Tscan:
         self.EXAFT= PPExafs.EXAFT(self.p4)
        # FIT
         self.p5=Frame(self.nb)
-        self.nb.add(self.p5, text="FIT")       
+        self.nb.add(self.p5, text="Fit")       
         self.EXAFIT= PPFit.FIT(self.p5)
        # DefineX
         self.p6=Frame(self.nb)
-        self.nb.add(self.p6, text="DEFINE X")
+        self.nb.add(self.p6, text="Attributes")
         self.XDEF= XDEF(self.p6)
       #-------------------------------------set page-------------------------
         #self.nb.raise_page("page1")
@@ -287,10 +273,6 @@ class Tscan:
 ################################ functions global ############################################
 
     def Setlimit(self,beamline):
-        if beamline=="BM29f":
-            self.QEcal.browse_command2("Fil") 
-        elif beamline=="BM29d":
-            self.QEcal.browse_command2("Dir")              
         if beamline=="SPEC":
             self.QE_spec.browse_command2()            
         elif beamline=="SAMBAf":
