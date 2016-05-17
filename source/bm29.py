@@ -34,7 +34,7 @@
 
 
 import scipy
-import Exapy
+import exapy
 import numpy as np
 from scipy import interpolate
 import os
@@ -85,7 +85,7 @@ class SmDerInt():
         self.deriv attribute in wich is defined the derivative.
         """
         Y =  self.smooth if smoot_l == True else  self.y
-        x_denom = 1 if self.x==None else np.gradient(self.x)
+        x_denom = 1 if self.x is None else np.gradient(self.x)
         #devz = lambda der_ord: np.gradient(devz(der_ord-1))/x_denom  if der_ord!=1 else np.gradient(Y)/x_denom
         #self.deriv=devz(der_ord)
         self.deriv=np.gradient(Y)/x_denom
@@ -193,7 +193,7 @@ class FileFormatError(Exception):
 
 
 
-class bm29file(Exapy.exaPy):
+class bm29file(exapy.ExaPy):
     """classe file di BM29 dovrebbe aprire un file leggerlo leggere le
     informazioni dei commenti. ha delle funzioni per il calcolo della derivata prima
     e dell angolo del monocromatore per ogni punto di enegia \n
@@ -228,6 +228,7 @@ class bm29file(Exapy.exaPy):
                self.bm29open()
           else:
               print "porca troia"
+          super(bm29file, self).__init__(energy=self.E, mu=self.Mu)
  
 
 
@@ -370,7 +371,7 @@ class bm29file(Exapy.exaPy):
             """define an A attribute with monochromator angle position
             corrisponding to each energy point of the spectra """
             self.A = scipy.rad2deg(scipy.arcsin((1.23984E-6/(self.E))*1E10/(2*self.dspac)))
-    def bm29splE(self, L1=None, L2=None, s=0):
+    def __bm29splE__(self, L1=None, L2=None, s=0):
             """ spline interpolation of Mu spectra in the range L1 L2
             define an attribute E_splineMu conteining a spline object """
             if L1==self.E[0]: L1=None
@@ -381,12 +382,8 @@ class bm29file(Exapy.exaPy):
             spercent=(s*(sum(self.Mu[L1:L2]-min(self.Mu[L1:L2]))))**2
             #print spercent
             self.E_splineMu = interpolate.splrep(self.E[L1:L2], self.Mu[L1:L2], s=spercent)
-    def bm29splNor(self, L1=None, L2=None, s=0):
-            """ spline interpolation of Normalized Mu spectra in the range L1 L2
-            define an attribute E_splineNor conteining a spline object  """
-            if not hasattr(self, 'Nor'): self.XANES_Norm()
-            self.E_splineNor = interpolate.splrep(self.E,self.Nor,xb=L1, xe=L2 , s=s)
-    def bm29splRef(self, L1=None, L2=None, s=0):
+
+    def __bm29splRef__(self, L1=None, L2=None, s=0):
             """ spline interpolation of ref Mu spectra in the range L1 L2
             define anA attribute E_splineMu conteining a spline object """
             self.E_splineRef = interpolate.splrep(self.E,self.ref,xb=L1, xe=L2,s=s)            
@@ -399,21 +396,30 @@ class bm29file(Exapy.exaPy):
             """
             #if not hasattr(self, 'E_splineMu'): self.bm29splE( L1, L2, s)
             if spline:
-                self.bm29splE(L1, L2, s)
+                self.__bm29splE__(L1, L2, s)
             if sampling==None: sampling=self.E
             self.E_MuFp = interpolate.splev(sampling,self.E_splineMu,der=1)
     def bm29derRef(self, sampling=None, L1=None, L2=None):
-            if not hasattr(self, 'E_splineRef'): self.bm29splRef( L1, L2)
+            if not hasattr(self, 'E_splineRef'): self.__bm29splRef__( L1, L2)
             if sampling==None: sampling=self.E
             self.E_RefFp = interpolate.splev(sampling,self.E_splineRef,der=1)            
-    def bm29int_Mu(self, L1=None, L2=None):
-            """ compute the analitic integral between L1 and L2 of Mu spline"""
-            if not hasattr(self, 'E_splineMu'): self.bm29splE()
-            return interpolate.splint(L1, L2, self.E_splineMum, full_output=0)
-    def bm29int_Nor(self, L1=None, L2=None):
-            """ compute the analitic integral between L1 and L2 of Mu Normalized spline """
-            if not hasattr(self, 'E_splineNor'): self.bm29splNor()
-            return interpolate.splint(L1, L2, self.E_splineNor, full_output=0)
+    def bm29int(self, L1=None, L2=None, attribute=None, smoot=0):
+            """ compute the analitic integral between L1 and L2 of the attribute
+                by using a spline
+                L1=None,  first limit 
+                L2=None,  second limit
+                attribute=None,  attribute to integrate
+                smoot=0      smooting percent
+            """
+            if attribute is None: return 
+            x1=bisect.bisect_left(self.E, L1)
+            x2=bisect.bisect_right(self.E, L2) if L2 else self.E[-1]
+            arr= getattr(self, attribute)
+            spercent=(smoot*(sum(arr[x1:x2]-min(arr[x1:x2]))))**2
+            E_spline = interpolate.splrep(self.E[x1:x2], arr[x1:x2], s=spercent)
+            return interpolate.splint(L1, L2, E_spline, full_output=0)
+            
+
             
     def bm29Num_der(self, window_len=1, step=0, L1=None, L2=None, repeat=1):
         if L1==self.E[0]: L1=None

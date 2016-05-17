@@ -1,5 +1,5 @@
 import re
-from tables import atomic_weigh as at_w
+from xtables import atomic_weigh as at_w
 
 atom_p= re.compile('([A-Z][a-z]?)(\d*\.?\d*)')
 braket_p= re.compile('(\([\w.]*\))(\d*\.?\d*)')

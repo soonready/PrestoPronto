@@ -1,0 +1,538 @@
+#########################################################################################################
+class Spec_QE(Gen_QE):
+    def browse_command2(self):
+        global filesel_spectra
+        self.filesel.browse_command()
+        filesel_spectra=[]
+        colwin=Column_Window_spec(self.filesel.filenames)
+        #colwin.top_con.wait_window()
+        self.pulsante_Defcor.configure(relief="raised")
+        try:
+            filesel_spectra[0].bm29derRef()
+            Eo_test=bt.max_range(filesel_spectra[0].E, filesel_spectra[0].E_RefFp)
+            self.before.set(round(Eo_test-50))
+            self.after.set(round(Eo_test+50))  
+            self._c_range.set(1)
+        except:
+            pass
+        return
+
+####################################     QE cal      ####################################################
+class QEcal():
+    def __init__(self, genitore):
+      #-----------------------------      Declare      --------------------------------------------------
+        self.before = StringVar()
+        self.after  = StringVar()
+        #self.energy = StringVar()
+        self._function= StringVar()
+        self._function_p= StringVar()
+        self._All_spectra= StringVar()
+        self._c_range = IntVar()
+      #-----------------------------      Define       --------------------------------------------------
+        self._function.set("Ref.der.")
+        self._function_p.set("Ref")        
+        self._All_spectra.set("first spectra     ")        
+        labelpack =  {"side" : LEFT,  "fill" :BOTH , "anchor" : N,"ipadx" : 0} #,"expand" : YES, "ipady" : 5
+        entrypack = {"side" : LEFT, "padx" : 1 , "fill" : None}#"ipady" : 3
+      #-----------------------------      Windows       --------------------------------------------------
+        self.filesel = ut.Browse_filename(genitore, "Filenames", 0)
+        self.filesel.pulsanteA.configure(command= self.browse_command2)
+        self.dirsel = ut.Browse_Directory(genitore, "Files in a Directory if more than 350", 0)
+      #--------------------------- Quadro correction ---------------------------------------------- 
+        self.quadro_Define = LabelFrame(genitore,  text = "Allign spectra respect to")
+        self.quadro_Define.pack(side = TOP, anchor=W, fill = X, pady= 3, ipadx = 5, ipady = 3, expand = N)   #, expand = YES
+       #--------------------------- Quadro correction 1---------------------------------------------- 
+        self.quadro_Define1 = Frame(self.quadro_Define)
+        self.quadro_Define1.pack(side = TOP, anchor=W, fill = X, pady= 0, ipadx = 0, ipady = 0, expand = N)  
+        self.combo_All= ttk.Combobox(self.quadro_Define1 , state ="readonly",
+                                     textvariable=self._All_spectra,values=('first spectra     ', 'Calibration sample'))
+        self.combo_All.pack(side=LEFT)
+        self.combo_All.insert(0, 'first spectra     ')
+        self.combo_All.insert(1, 'Calibration sample')
+        
+        Label(self.quadro_Define1, text=" using ").pack(side = LEFT)
+        self.combo_Cal= ttk.Combobox(self.quadro_Define1 ,   textvariable=self._function,
+                         values=( 'Ref.der.','Ref','-I0','Cal. Mu','Cal. der.'))
+        self.combo_Cal.pack(side=LEFT)
+        self.combo_Cal.insert(0, 'Ref.der.')
+        self.combo_Cal.insert(1, 'Ref')
+        self.combo_Cal.insert(2, '-I0')
+        self.combo_Cal.insert(3, 'Cal. Mu')
+        self.combo_Cal.insert(4, 'Cal. der.')        
+        Frame(self.quadro_Define1).pack(side = LEFT, anchor=W, fill = X, pady= 2, ipadx = 10, padx=5, ipady = 3, expand = Y)
+        Button(self.quadro_Define1,
+              command = self.plot_set_Energy,
+              text = "Plot  correction ",
+              background = "violet",
+              width = 15,
+              padx = "1m",
+              pady = "2m").pack(side = LEFT, anchor = W)
+       #--------------------------- Quadro correction 2----------------------------------------------  
+        self.quadro_Define2 = Frame(self.quadro_Define)
+        self.quadro_Define2.pack(side = TOP, anchor=W, fill = X, pady= 3, ipadx = 0, ipady = 3, expand = N)  
+        Label(self.quadro_Define2, text="In the range").pack(side = LEFT)    
+        self.check_range=Checkbutton(self.quadro_Define2, variable=self._c_range )
+        self.check_range.pack(side = LEFT,  fill = Y ,anchor = W, ipady = 1)
+        Label(self.quadro_Define2, text=" between ").pack(side = LEFT)
+        self.Define_before = Entry(self.quadro_Define2,   textvariable= self.before, width = 10 )#
+        self.Define_before.pack(side = LEFT, padx = 5, ipadx =5  ,ipady = 3)
+        Label(self.quadro_Define2, text=" and ").pack(side = LEFT)
+        self.Define_after = Entry(self.quadro_Define2,   textvariable= self.after, width = 10 )
+        self.Define_after.pack(side = LEFT, padx = 5,  ipadx = 5 ,ipady = 3)  
+        Label(self.quadro_Define2, text=" eV ").pack(side = LEFT)
+       #--------------------------- Quadro correction 3----------------------------------------------  
+        self.quadro_Define3 = Frame(self.quadro_Define)
+        self.quadro_Define3.pack(side = TOP, anchor=W, fill = X, pady= 0, ipadx = 0, ipady = 0, expand = N)         
+        
+        self.calibsel = ut.Browse_file(self.quadro_Define3, "Calibration Sample", 1)
+    
+      #--------------------------- Quadro plot cor ----------------------------------------------         
+        self.quadro_plot = LabelFrame(genitore, text="Plot ")
+        self.quadro_plot.pack(side = TOP, expand = YES, fill = X, pady = 10,
+                                  ipadx = 5, ipady = 5)
+        self.combo_Plot= ttk.Combobox(self.quadro_plot ,  state ="readonly",
+                        textvariable=self._function_p,        values=('Ref.der.', 'Ref','-I0')  )
+        self.combo_Plot.pack(side=LEFT)   
+        self.pulsante_Plot_nc = Button(self.quadro_plot ,
+                                      command = lambda x= "not": self.plot_all(x),
+                                      text = "not corrected",
+                                      background = "DeepPink2",
+                                      width = 10,
+                                      padx = "3m",
+                                      pady = "2m")
+        self.pulsante_Plot_nc.pack(side = LEFT, anchor = W)
+        self.pulsante_Plot_c = Button(self.quadro_plot ,
+                                      command = lambda z= "cor": self.plot_all(z),
+                                      text = "  corrected  ",
+                                      background = "DeepPink2",
+                                      width = 10,
+                                      padx = "3m",
+                                      pady = "2m",
+                                      relief="ridge",#"solid",#"groove",#"flat",
+                                      state=DISABLED)
+        self.pulsante_Plot_c.pack(side = LEFT, anchor = W)
+      #--------------------------- Quadro perform ----------------------------------------------
+        self.quadro_buttonp3 = LabelFrame(genitore, text="Apply correction")
+        self.quadro_buttonp3.pack(side = TOP, expand = YES, fill = X, pady = 10,
+                                  ipadx = 5, ipady = 5)
+        self.pulsante_Defcor = Button(self.quadro_buttonp3,
+                                      command = self.correct,
+                                      text = "Apply correction",
+                                      background = "Violet",
+                                      width = 10,
+                                      padx = "5m",
+                                      pady = "2m")
+        self.pulsante_Defcor.pack(side = LEFT, anchor = W)
+        self.pulsante_Remcor = Button(self.quadro_buttonp3, 
+                                      command = self.rem_correct,
+                                      text = "Remove correction",
+                                      background = "Violet",
+                                      width = 10,
+                                      padx = "5m",
+                                      pady = "2m")
+        self.pulsante_Remcor.pack(side = LEFT, anchor = W)
+
+
+    ##########################function################################################################
+    def browse_command2(self,type_select):
+        global filesel_spectra
+        filesel_spectra=[]
+        if type_select == "Fil":
+            self.filesel.browse_command()
+            list_filenames=self.filesel.filenames
+        if type_select == "Dir":
+            self.dirsel.browse_command() 
+            list_filenames=self.dirsel.filenames          
+
+
+
+
+
+        try:
+            bm29.bm29file(list_filenames[0], All_Column="minimum")
+            format="bm29"
+        except bm29.FileFormatError:
+            format="samba"
+        if format=="bm29":
+            print "opening ", len(list_filenames), "  files"
+            for i in list_filenames:
+                filesel_spectra.append(bm29.bm29file(i, All_Column="minimum"))
+        elif  format=="samba":
+            for i in list_filenames:
+                filesel_spectra.append(bm29.sambafile(i, All_Column="minimum"))  
+        self.pulsante_Defcor.configure(relief="raised")
+        filesel_spectra[0].bm29derRef()
+        Eo_test=bt.max_range(filesel_spectra[0].E, filesel_spectra[0].E_RefFp)
+        self.before.set(round(Eo_test-50))
+        self.after.set(round(Eo_test+50))  
+        self._c_range.set(1)
+        return
+        
+
+
+    def plot_all(self, ptype): 
+        if ptype=="not":
+            if hasattr(filesel_spectra[0], "oldE"):
+                x_array=[item.oldE for item in filesel_spectra]
+            else:
+                x_array=[item.E for item in filesel_spectra]
+        if ptype=="cor":
+            if hasattr(filesel_spectra[0], "oldE"):
+                x_array=[item.E for item in filesel_spectra]
+            else: 
+                print "\nCorrection still not applied\n\
+                        press the button\n"
+                return
+        if self._function_p.get()=='Ref.der.':   
+            try:
+                for item in  filesel_spectra: item.bm29derRef()
+                y_array=[item.E_RefFp for item in filesel_spectra]
+                title="derivate reference"
+            except:
+                print "reference not measured"
+                return            
+            
+        elif self._function_p.get()=='Ref':            
+            try:
+                y_array=[item.ref for item in filesel_spectra]
+                title="reference"                
+            except:
+                print "reference not measured"
+                return
+        elif self._function_p.get()=='-I0':    
+                y_array=[item.I0 for item in filesel_spectra]
+                title= "I0"
+        if ptype== "cor": title=title+" corrected"   
+        self.graph = ut.Graph()
+        self.graph.plot(x_array, y_array, title= title)
+    
+
+
+
+    def set_Energy(self):
+        self.Energy_row=[]
+        self._function.get()
+        if self._c_range.get():
+            before =float(self.before.get())
+            after=float(self.after.get())
+        else:
+            before, after= None, None
+        if self._function.get() == "-I0":
+            Y= lambda x: -x.I0/abs(max(-x.I0))
+        elif self._function.get() == 'Ref.':
+            Y= lambda x: x.ref
+        elif self._function.get() == 'Ref.der.':
+            for item in filesel_spectra: item.bm29derRef()
+            Y= lambda x: x.E_RefFp/max(x.E_RefFp)
+        elif self._function.get() == 'Cal. Mu':
+            Y= lambda x: x.Mu
+        elif self._function.get() == 'Cal. der.':
+            self.calibsel.spectra[0].bm29derRef()
+            Y= lambda x: x.E_Fp/max(x.E_MuFp)            
+            
+        if  self._c_range.get():
+            L = lambda objecto,x: x.compress((objecto.E>before)&(objecto.E<after))
+        else:
+            L = lambda objecto,x: x        
+        if self._All_spectra.get() =='first spectra     ':
+            if self._function.get() =='Cal. Mu' or self._function.get() =='Cal. der.':
+                print "\nnot clear input\nasking to use first sample and calibration...."
+            splinex1y1 = interpolate.splrep(filesel_spectra[0].E,Y(filesel_spectra[0]))
+        elif self._All_spectra.get() =='Calibration sample':
+            if self._function.get() =='Ref.' or self._function.get() =='Ref.der.':
+                print "\nATTENTION you are using reference of calibration file\n"
+                raise ValueError()
+            try:
+                splinex1y1 = interpolate.splrep(self.calibsel.spectra[0].E,Y(self.calibsel.spectra[0]))
+            except:
+                self.calibsel.spectra[0]=bm29.bm29file(self.calibsel.spectra[0].data)
+            self.calibsel.spectra[0].bm29derE()
+            if self._function.get() == 'Ref.':
+                splinex1y1 = interpolate.splrep(self.calibsel.spectra[0].E, self.calibsel.spectra[0].Mu)
+            elif self._function.get() == 'Ref.der.':    
+                splinex1y1 = interpolate.splrep(self.calibsel.spectra[0].E, self.calibsel.spectra[0].E_MuFp)
+        self.standard_Energy=bt.max_range(filesel_spectra[0].E, Y(filesel_spectra[0]),before,after) 
+           
+        for item in  filesel_spectra:
+            self.Energy_row.append(float(ut.fitcalibration(x2=L(item,item.E), y2=L(item,Y(item)),
+                                                     param=[0],splinex1y1=splinex1y1)))
+           
+
+        
+    def plot_set_Energy(self):
+        self.set_Energy()
+        x_array= [range(len(filesel_spectra))]
+        y_array= [self.Energy_row]
+        self.graph = ut.Graph()
+        self.graph.plot(x_array, y_array, title= "Energy shift")   
+
+    def correct(self):
+        self.set_Energy()
+        if hasattr(filesel_spectra[0], "oldE"):            
+            pass
+        else:  
+            for item in filesel_spectra: item.oldE=item.E
+        for i,item in enumerate(filesel_spectra):
+            item.E= bt.MvEAshift(item.E,item.dspac, self.standard_Energy-self.Energy_row[i],
+                                 self.standard_Energy)
+        print "\nCorrection applyed\n"            
+        self.pulsante_Defcor.configure(relief="sunken")
+        self.pulsante_Plot_c.configure(relief="raised",state=NORMAL)
+        
+    def rem_correct(self):
+        for item in filesel_spectra:
+            item.E=item.oldE
+            del item.oldE    
+        self.pulsante_Defcor.configure(relief="raised")
+        self.pulsante_Plot_c.configure(relief="ridge",state=DISABLED)        
+        print "\nCorrection removed\n"
+            
+       
+#########################################################################################################
+##################################       SAmbaQE   #####################################################     
+class SambaQE():
+    def __init__(self, genitore):
+      #-----------------------------      Declare      --------------------------------------------------
+        self.A = StringVar()
+        self._r =StringVar()
+        self.v = IntVar()
+        self.v.set(2)
+
+
+      #-----------------------------      Define      --------------------------------------------------
+        self.A.set(0)
+
+      #-----------------------------      geometry      --------------------------------------------------
+      #-----------------------------      Browsefiles ---------------------------------------------
+        self.filesel = ut.Browse_filename(genitore, "Experiment Filenames if less than 350", 0)
+        #self.filesel.pulsanteA.configure(command= lambda i="Fil":  self.browse_command2(i))  the command changed in line 3496 
+        self.dirsel = ut.Browse_Directory(genitore, "Files in a Directory if more than 250", 0)
+        #self.dirsel.pulsanteA.configure(command= lambda i="Dir":  self.browse_command2(i))  the command changed in line 3496       
+        self.Cal_sel = ut.Browse_filename(genitore, "Calibration sample", 1)
+        self.quadro_Title = Frame(genitore)
+        self.quadro_Title.pack(side = TOP, anchor= W, expand = Y, fill = BOTH)
+        Label(self.quadro_Title, text= " Shift of Eo between different run   ").pack(side=LEFT, anchor=N)
+        Radiobutton(self.quadro_Title, text="Write text",
+                                        variable=self.v,
+                                        value=1,
+                                        command= self.radio_command
+                                        ).pack(side=LEFT,   anchor=N)
+        Radiobutton(self.quadro_Title, text="Use sliders",
+                                        variable=self.v,
+                                        value=2,
+                                        command= self.radio_command
+                                        ).pack(side=LEFT,  anchor=N)
+      #-----------------------------      Calibration---------------------------------------------
+        self.quadro_sliders = Frame(genitore)
+        self.quadro_sliders.pack(side = TOP, anchor= W, expand = Y, fill = BOTH)
+        self.quadro_A = Frame(self.quadro_sliders)
+        self.quadro_A.pack(side =TOP, fill=BOTH)
+        self.Aslider = Scale( self.quadro_A, from_=-2, to=2,
+                                            command= self.setredraw_A,
+                                            variable= self.A,
+                                            resolution=0.001,
+                                            orient=HORIZONTAL, # label= "A",
+                                            showvalue=0
+                                            )
+        self.Aslider.pack(side = LEFT,fill = X, anchor = W,pady = 3, ipady = 0, expand = Y)
+        #Label(self.quadro_A,text= " A ").pack(side=LEFT)#, anchor = SW
+        self.entry_A= Entry(self.quadro_A, width = 9, textvariable = self.A, state='readonly')
+        self.entry_A.pack(side = LEFT, ipadx = 5, ipady = 1, fill = None, pady= 2)
+        Label(self.quadro_A, text= "Delta E").pack(side=LEFT)
+
+
+
+
+        self.quadro_buttonp1 = Frame(genitore)
+        self.quadro_buttonp1.pack(side = TOP, expand = N, fill = X, pady = 2,
+                                  ipadx = 5, ipady = 5)
+        self.pulsante_plot = Button(self.quadro_buttonp1,
+                                      command = self.plot,
+                                      text = "Plot Mu",
+                                      background = "violet",
+                                      width = 8,
+                                      padx = "3m",
+                                      pady = "2m")
+        self.pulsante_plot.pack(side = LEFT, anchor = W)
+        self.pulsante_dplot = Button(self.quadro_buttonp1,
+                                      command = self.dplot,
+                                      text = "Plo Derivative",
+                                      background = "violet",
+                                      width = 8,
+                                      padx = "3m",
+                                      pady = "2m")
+        self.pulsante_dplot.pack(side = LEFT, anchor = W)
+        self.pulsante_Fitder = Button(self.quadro_buttonp1, 
+                                      command = self.fitder,
+                                      text = "Fit Derivative",
+                                      background = "violet",
+                                      width = 8,
+                                      padx = "3m",
+                                      pady = "2m")
+        self.pulsante_Fitder.pack(side = LEFT, anchor = W)        
+        
+        
+
+        self.quadro_buttonp3 = LabelFrame(genitore, text="Apply correction")
+        self.quadro_buttonp3.pack(side = TOP, expand = YES, fill = X, pady = 10,
+                                  ipadx = 5, ipady = 5)
+        self.pulsante_Defcor = Button(self.quadro_buttonp3,
+                                      command = self.correct,
+                                      text = "Apply correction",
+                                      background = "Violet",
+                                      width = 10,
+                                      padx = "5m",
+                                      pady = "2m")
+        self.pulsante_Defcor.pack(side = LEFT, anchor = W)
+        self.pulsante_Remcor = Button(self.quadro_buttonp3, 
+                                      command = self.rem_correct,
+                                      text = "Remove correction",
+                                      background = "Violet",
+                                      width = 10,
+                                      padx = "5m",
+                                      pady = "2m")
+        self.pulsante_Remcor.pack(side = LEFT, anchor = W)
+
+        self.quadro_push = Frame(genitore)
+        self.quadro_push.pack(side = TOP, expand = YES, fill = BOTH,pady = 10,
+                                  ipadx = 5, ipady = 5)
+
+    ##########################function################################################################
+    def browse_command2(self,type_select):
+        global filesel_spectra
+        filesel_spectra=[]
+        
+        if type_select == "Fil":
+            self.filesel.browse_command()
+            list_filenames=self.filesel.filenames
+        if type_select == "Dir":
+            self.dirsel.browse_command() 
+            list_filenames=self.dirsel.filenames            
+            
+            
+        try:
+            bm29.bm29file(list_filenames[0], All_Column="minimum")
+            format="bm29"
+        except bm29.FileFormatError:
+            format="samba"
+        
+        if format=="bm29":
+            for i in list_filenames:
+                filesel_spectra.append(bm29.bm29file(i, All_Column="minimum"))
+        elif  format=="samba":
+            for i in list_filenames:
+                try:
+                    print i
+                    filesel_spectra.append(bm29.sambafile(i, All_Column="minimum")) 
+                except Exception as e:
+                    name=str(type(e)).split("'")[-2]
+                    print "\nproblem on file:\n%s" %(i)
+                    print "{0:s} : {1:s}".format(name, e)
+                    self.filesel.labelfiletext.set(name)
+        self.pulsante_Defcor.configure(relief="raised", state=NORMAL)
+        return
+
+    def radio_command(self):
+        if self.v.get() ==1:
+            self.Aslider.configure(variable= 0,  state = DISABLED, )   #command= None,
+            self.entry_A.configure(state = NORMAL, )
+
+        if self.v.get() ==2:
+            self.Aslider.configure(state = ACTIVE  ,variable=self.A)    #, command= self.setredraw_A
+            self.entry_A.configure(state = 'readonly', )
+        pass
+    
+    def setredraw_A(self,value):
+        pippo = value
+        try:
+           self.graph.curves[0].set_xdata(self.firstfile.E+float(self.A.get()))
+           self.graph.canvas.draw()
+        except: pass
+        try:
+            self.graphd.curves[0].set_xdata(self.firstfile.E+float(self.A.get()))
+            self.graphd.canvas.draw()
+        except: pass
+        pass
+    
+    def plot(self):     
+        if self.pulsante_dplot.configure()['relief'][-1]=='raised':
+            self.pre_allig()
+        self.graph= ut.Graph()
+        self.graph.top.protocol("WM_DELETE_WINDOW", self.topcallback_plot)
+        self.graph.plot([self.firstfile.E+float(self.A.get())],[self.firstfile.Nor])
+        self.graph.plot([ self.calib.E],[self.calib.Nor]) 
+        #self.pulsante_plot.configure(relief="sunken", state=DISABLED) 
+
+
+    def dplot(self):
+        if self.pulsante_plot.configure()['relief'][-1]=='raised':
+            self.pre_allig()
+        self.graphd= ut.Graph()
+        self.graphd.top.protocol("WM_DELETE_WINDOW", self.topcallback_dplot)
+        self.graphd.plot([self.firstfile.E+float(self.A.get())],[self.firstfile.E_MuFp/max(
+                                                              self.calib.E_MuFp)])#self.calib.Ej])
+        self.graphd.plot([self.calib.E],[self.calib.E_MuFp/max(self.calib.E_MuFp)])#self.disp.Ej])                                                      
+        self.pulsante_dplot.configure(relief="sunken", state=DISABLED)      
+                                                                               
+
+    def pre_allig(self):
+        if hasattr(filesel_spectra[0], "oldE"):            
+            pass
+        else:  
+            for item in filesel_spectra: item.oldE=item.E
+        self.calib= bm29.sfigati(self.Cal_sel.filenames[0])
+        self.calib.bm29derE()
+        self.calib.XANES_Norm()
+        self.calib_maxi=self.calib.E_MuFp.argmax()
+        ref=numpy.zeros(len(filesel_spectra[0].ref))
+        for i in filesel_spectra: 
+           ref+=i.ref/len(filesel_spectra) 
+        self.firstfile= bm29.bm29file([filesel_spectra[0].E, ref])
+        del ref
+        self.firstfile.bm29derE()
+        self.firstfile.XANES_Norm()
+        self.firstfile_maxi=self.firstfile.E_MuFp.argmax()      
+            #self.Aslider.configure(from_ = self.calib.E[self.calib_maxi]*0.985,
+            #                       to =self.calib.E[self.calib_maxi]*1.015)
+            #self.A.set(self.calib.E[self.calib_maxi]- self.disp_maxi)
+            #self.newE= self.newf(numpy.arange(len(self.disp.E)))
+    def topcallback_plot(self):
+        self.pulsante_plot.configure(relief="raised", state=NORMAL)
+        self.graph.top.destroy()
+
+    def topcallback_dplot(self):
+        self.pulsante_dplot.configure(relief="raised", state=NORMAL)
+        self.graphd.top.destroy()
+        
+    def fitder(self):
+        if self.pulsante_dplot.configure()['relief'][-1]=='raised':
+                    if self.pulsante_plot.configure()['relief'][-1]=='raised':
+                        self.pre_allig()
+        param=[float(self.A.get())]    
+        param=ut.fitcalibration(self.calib.E, numpy.gradient(self.calib.Mu), \
+                                self.firstfile.E, numpy.gradient(self.firstfile.Mu), param)
+        self.A.set(round(param,3))
+        self.setredraw_A(param) 
+              
+    
+    def correct(self):
+        if hasattr(filesel_spectra[0], "oldE"):            
+            pass
+        else:  
+            for item in filesel_spectra: item.oldE = item.E
+        for i,item in enumerate(filesel_spectra):
+            # if correction has to be done in angle change with
+            # bt.MvEAshift(item.E,item.dspac, self.Energy_row[i],standard_energy)
+            item.E= item.oldE+float(self.A.get())
+        print "\nCorrection applied\n"
+        self.pulsante_Defcor.configure(relief="sunken", state=NORMAL)
+
+
+            
+    def rem_correct(self):
+        for item in filesel_spectra:
+            item.E=item.oldE
+            del item.oldE    
+        print "\nCorrection removed\n"
+        self.pulsante_Defcor.configure(relief="raised", state=NORMAL)
+#######################################################################################################

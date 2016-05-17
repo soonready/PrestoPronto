@@ -31,7 +31,7 @@ Carmelo Prestipino <carmelo.prestipino@univ-rennes1.fr>
 ########################################################
 
 Executable file: PrestoPronto
-Author: Carmelo Prestipino based
+Author: Carmelo Prestipino 
 
 Copyright 2009 ESRF
 
@@ -54,11 +54,12 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Except as contained in this notice, the name of ESRF
-shall not be used in advertising or otherwise to promote
-the sale, use or other dealings in this Software without prior written
-authorization from ESRF.
-
+version b.1.0.0
+17/5/2016
+all passed under Larch
+several bug corrections
+progress bar added
+infinite path can be used in fit
 
 version b.0.8.0 
 bur solving 

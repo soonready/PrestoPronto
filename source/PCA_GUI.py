@@ -439,7 +439,10 @@ class PCA_G():
         title=("Residual "+ str(self.comp.get())+ " component")        
       #--------------------------   Graphic win  --------------------------------------------------
         self.grap_res=ut.Graph(title)
-        self.grap_res.plot([range(1,len(spectro)+1)],[[sum(abs(item.r)) for item in spectro]])    
+        self.grap_res.plot([range(1,len(spectro)+1)],
+                           [[sum(abs(item.r)) for item in spectro]],
+                           xlabel='# spectrum')    
+        
         
     def Comparesave(self):
         spectro =self.Comn_res()
@@ -473,11 +476,11 @@ class PCA_G():
         pca_sa= PCA.PCA(spectra)
         self.limit= component_show if  spectra.shape[1]>component_show  else spectra.shape[1]  
         for i in range(self.limit):
-            self.lines[i]._eig.set("{0:.3g}".format(pca_sa.V[i]))
-            self.lines[i]._RE.set("{0:.3g}".format(pca_sa.EVAL_IND.RE[i]))
-            self.lines[i]._REV.set("{0:.3g}".format(pca_sa.EVAL_IND.REV[i]))
-            self.lines[i]._IND.set("{0:.3g}".format(pca_sa.EVAL_IND.IND[i]))
-            self.lines[i]._VAR.set("{0:.4g}".format(pca_sa.EVAL_IND.cumVp[i]))
+            self.lines[i]._eig.set("{0:.3g}".format(pca_sa.V[i]))               #eigen values
+            self.lines[i]._RE.set("{0:.3g}".format(pca_sa.EVAL_IND.RE[i]))      #Re function
+            self.lines[i]._REV.set("{0:.3g}".format(pca_sa.EVAL_IND.REV[i]))    #Ref function
+            self.lines[i]._IND.set("{0:.3g}".format(pca_sa.EVAL_IND.IND[i]))    #ind funtion
+            self.lines[i]._VAR.set("{0:.4g}".format(pca_sa.EVAL_IND.cumVp[i]))  #cumulative variance
             self.lines[i]._pSL.set("{0:.3f}".format(pca_sa.EVAL_IND.SS[i]))
             self.lines[i]._RSD.set("{0:.3g}".format(pca_sa.EVAL_IND.RSD[i])) 
             self.lines[i]._MAD.set(str(pca_sa.EVAL_IND.MAD[i]))
