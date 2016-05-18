@@ -1,5 +1,16 @@
 from scipy import interpolate
 
+def atomic_mass(element):    
+    "return molar mass (amu) from element symbol or atomic number"
+    if isinstance(element, int):
+        element = atomic_symbol(element)
+    return atomic_weigh[element]
+
+def atomic_symbol(z):
+    "return element symbol from z"
+    return elements[z]
+
+
 dspacing = {"Si 111": 3.13467, "Si 311" :1.63702, "Si 511" :1.04514 }
 
 elements = ["", "H" , "He", "Li", "Be", "B" , "C" , "N" , "O" , "F" , "Ne", "Na",

@@ -1,6 +1,8 @@
 from cx_Freeze import setup, Executable
 
-
+import sqlalchemy
+import larch
+import larch_plugins
 #includes = ["scipy.linalg","numpy"]
 #copyDependentFiles=True
 
@@ -17,11 +19,6 @@ com_file=['./Doc',
           'feff6l.exe',
           'README.txt',
           'LICENCE.txt',
-          'ifeffit.exe',
-          'ifeffit_12.dll',
-          'libifcorert.dll',
-          'libifportmd.dll',
-          'libmmd.dll',
           'PrestoPronto.iss']
 
 
@@ -29,14 +26,21 @@ com_file=['./Doc',
 
 packages = [] 
 path = [] 
-excluded_mod=["PyQt4","PyQt4.QtGui","win32gui","pywin", "tcl", "pywin.debugger", "pywin.debugger.dbgcon","pywin.dialogs", "pywin.dialogs.list", "win32com.server","email"]
+excluded_mod=["Panda","PyQt4","PyQt4.QtGui","win32gui","pywin", "tcl", 
+              "pywin.debugger", "pywin.debugger.dbgcon","pywin.dialogs",
+              "pywin.dialogs.list", "win32com.server","email"
+              '_imagingtk', 'PIL._imagingtk', 'ImageTk',
+              'PIL.ImageTk', 'matplotlib.tests', 'qt', 'PyQt4Gui', 'IPython',
+              'pywin', 'pywin.dialogs', 'pywin.dialogs.list']#,"mathplotlib"
+              
 included_mod=["scipy.special._ufuncs_cxx",
+               "scipy.constants",
                "scipy.integrate.vode",
                "scipy.integrate.lsoda",
                "scipy.sparse.csgraph._validation",
                "FileDialog",
-               "lmfit"
-]#"Tix"
+               "lmfit",
+               "xtables"]#,"matplotlib.backends.backend_tkagg"]#"Tix"
 
 #GUI2Exe_Target_1 = Executable(
 #    script = "script.pyw",
@@ -52,7 +56,7 @@ included_mod=["scipy.special._ufuncs_cxx",
 
 setup(
         name = "PrestoPronto",
-        version = "0.6",
+        version = "1.0",
         author='carmelo prestipino',
         author_email='carmelo.prestipino@univ-rennes1.fr',
         url='http://code.google.com/p/prestopronto/',
