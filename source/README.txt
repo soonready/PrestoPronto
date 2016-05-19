@@ -7,11 +7,11 @@ previosly Python 2.6 plus the libraries: numpy, matplotlib and scipy.
 The program runs with the Prestopronto.py file.
 For windows users there is a instalation file available at: 
 
-https://code.google.com/p/prestopronto/downloads/list
+https://github.com/soonready/PrestoPronto
 
 Any bug or problem, please let me know:
 
-http://code.google.com/p/prestopronto/issues/list?can=1&q=
+https://github.com/soonready/PrestoPronto
 or email
 carmelo.Prestipino@gmail.com
 
@@ -22,10 +22,10 @@ Best regards
 Carmelo Prestipino <carmelo.prestipino@univ-rennes1.fr>
 ########################################################
 #  Dr. Carmelo Prestipino                              #
-#  CNRS-Université de Rennes 1                         #
+#  CNRS-UniversitÃ© de Rennes 1                         #
 #  Sciences Chimiques de Rennes - UMR 6226             #
-#  Matériaux Inorganiques: Chimie Douce et Réactivité  #
-#  Campus de Beaulieu, Bât 10B                         #
+#  MatÃ©riaux Inorganiques: Chimie Douce et RÃ©activitÃ©  #
+#  Campus de Beaulieu, BÃ¢t 10B                         #
 #  F-35042 RENNES  (France)                            #
 #  Tel (+33) 2 23 23 65 31                             #
 ########################################################
@@ -33,7 +33,7 @@ Carmelo Prestipino <carmelo.prestipino@univ-rennes1.fr>
 Executable file: PrestoPronto
 Author: Carmelo Prestipino 
 
-Copyright 2009 ESRF
+Copyright 2016 CNRS
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
