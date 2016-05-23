@@ -11,8 +11,11 @@ import ConfigParser
 #import zipfile for zipped files
 import text
 from scipy import interpolate
-from PyMca.specfile import Specfile
-
+try:
+     from PyMca5.PyMcaIO.specfile import Specfile
+except ImportError:
+     from PyMca.specfile import Specfile
+    
 import PPset
 
 from PPset import filesel_spectra as fil_spec
