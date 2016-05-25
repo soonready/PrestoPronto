@@ -766,7 +766,7 @@ def QSFEFF(Absorber, Scatterer, rad=2,edge="K",geometry='Tetrahedral'):
     feffinput += "HOLE     "+EdgeN+"   1.0\n"          
     feffinput += "CONTROL  1 1 1 1 1 1\n"    
     feffinput += "PRINT    1 0 0 0 0 3\n"
-    feffinput += "RMAX = "+str(rad+.40)+"\n"      
+    feffinput += "RMAX "+str(rad+.40)+"\n"      
     feffinput += "POTENTIALS\n"
     feffinput += "  0  "+N_Absorber+"  "+Absorber+"\n"    
     feffinput += "  1  "+N_Scatterer+"  "+Scatterer+"\n"    

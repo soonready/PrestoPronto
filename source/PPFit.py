@@ -119,7 +119,7 @@ class QFeffGenerate():
         feffinput=exapy.QSFEFF(Absorber, Scatter, bond , edge, geometry)
         fefffile=tkFileDialog.asksaveasfile(title= "directory for save feff input end output",
                                                 initialfile ="feff",
-                                                defaultextension = "inp")
+                                                defaultextension = ".inp")
         Start_Dir=os.getcwd()
         directory= os.path.dirname(fefffile.name)
         fefffile.write(feffinput)
@@ -132,7 +132,10 @@ class QFeffGenerate():
                                                                    "feff6l.exe")
             os.system(command.join('""'))
         elif os.name =="posix":
-            os.system(feff6)
+            #os.system(feff6)
+            #command=os.path.join(inivar.get("PrestoPronto", "PrestoPronto_Dir"),
+                                                                   #"feff6")
+            os.system("feff6 %s" %fefffile.name)
         os.chdir(Start_Dir)
         print "*************************************************"
         self.genpath.filenames.append(fefffile.name[:-4] + "0001.dat")
