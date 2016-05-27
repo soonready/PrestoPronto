@@ -50,7 +50,7 @@ from larch.utils import fixName
 
 # now import larch-specific Python code
 from larch_plugins import xafs
-
+from larch_plugins.xafs.feffit import feffit_report as myfeffit_report
 
 
 
@@ -692,7 +692,7 @@ def feffit_report(result, min_correl=0.1, with_paths=True , _larch=my_larch):
       printable string of report.
 
     """
-    return xafs.feffit_report(result, min_correl=0.1, with_paths=True,
+    return myfeffit_report(result, min_correl=0.1, with_paths=True,
                               _larch=my_larch)
 
 
