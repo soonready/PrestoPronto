@@ -1,0 +1,5 @@
+*.pyc
+source/build
+source/dist
+source/PrestoPronto.egg-info
+*.swp

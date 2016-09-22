@@ -50,7 +50,7 @@ from larch.utils import fixName
 
 # now import larch-specific Python code
 from larch_plugins import xafs
-
+from larch_plugins.xafs.feffit import feffit_report as myfeffit_report
 
 
 
@@ -692,7 +692,7 @@ def feffit_report(result, min_correl=0.1, with_paths=True , _larch=my_larch):
       printable string of report.
 
     """
-    return xafs.feffit_report(result, min_correl=0.1, with_paths=True,
+    return myfeffit_report(result, min_correl=0.1, with_paths=True,
                               _larch=my_larch)
 
 
@@ -766,7 +766,7 @@ def QSFEFF(Absorber, Scatterer, rad=2,edge="K",geometry='Tetrahedral'):
     feffinput += "HOLE     "+EdgeN+"   1.0\n"          
     feffinput += "CONTROL  1 1 1 1 1 1\n"    
     feffinput += "PRINT    1 0 0 0 0 3\n"
-    feffinput += "RMAX = "+str(rad+.40)+"\n"      
+    feffinput += "RMAX "+str(rad+.40)+"\n"      
     feffinput += "POTENTIALS\n"
     feffinput += "  0  "+N_Absorber+"  "+Absorber+"\n"    
     feffinput += "  1  "+N_Scatterer+"  "+Scatterer+"\n"    

@@ -117,25 +117,33 @@ class QFeffGenerate():
         Absorber = self._Absorber.get()
         Scatter = self._Scatter.get()
         feffinput=exapy.QSFEFF(Absorber, Scatter, bond , edge, geometry)
-        fefffile=tkFileDialog.asksaveasfile(title= "directory for save feff input end output",
-                                                initialfile ="feff",
-                                                defaultextension = "inp")
+	# use dialog for directory
+        feffdir = tkFileDialog.askdirectory(title= "Directory for save feff input end output")
+        fefffile = os.path.join(feffdir, 'feff.inp')
         Start_Dir=os.getcwd()
-        directory= os.path.dirname(fefffile.name)
-        fefffile.write(feffinput)
-        fefffile.close()
+        with open(fefffile, 'w') as f:
+            f.write(feffinput)
         print "*************************************************"
-        print "feff6l \"%s\"" %fefffile.name
-        os.chdir(directory)
+        print "feff6l \"%s\"" % fefffile
+        os.chdir(feffdir)
+        # if feff0001.dat already exists, delete it first
+        # this makes sense as we are not checking for the return value of os.system, so it is possible we end up reading a previously written version of it
+        try:
+            os.unlink(os.path.join(feffdir, "feff0001.dat"))
+        except OSError as e:
+            pass
         if os.name =="nt":
             command=os.path.join(inivar.get("PrestoPronto", "PrestoPronto_Dir"),
                                                                    "feff6l.exe")
             os.system(command.join('""'))
         elif os.name =="posix":
-            os.system(feff6)
+            #os.system(feff6)
+            #command=os.path.join(inivar.get("PrestoPronto", "PrestoPronto_Dir"),
+                                                                   #"feff6")
+            os.system("feff6L")
         os.chdir(Start_Dir)
         print "*************************************************"
-        self.genpath.filenames.append(fefffile.name[:-4] + "0001.dat")
+        self.genpath.filenames.append(os.path.join(feffdir, "feff0001.dat"))
         self.genitore.focus()
 
         #print self.genpath.filenames[0]

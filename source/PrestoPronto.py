@@ -350,11 +350,17 @@ def readini():
         if os.access(inivar.get("PrestoPronto", "Start_Dir"), os.F_OK):
             os.chdir(inivar.get("PrestoPronto", "Start_Dir"))
         else:
-            os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+            if os.name == 'nt':
+                os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+            else:
+                os.chdir(os.environ['HOME'])
     else:
        inivar.add_section("PrestoPronto")
        inivar.set("PrestoPronto", "PrestoPronto_Dir", os.getcwd())
-       os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+       if os.name == 'nt':
+           os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+       else:
+           os.chdir(os.environ['HOME'])
     return    
            
 #################   Inizialization   ############################################################ 
@@ -365,10 +371,10 @@ def writeini():
          path_local_data=os.path.join(os.environ['APPDATA'],"PrestoPronto")
     elif os.name =="posix":
          path_local_data="~/.local/bin"
-    if not(os.access(path_local_data, os.F_OK)):
-         os.mkdir(path_local_data)   
+    if not(os.access(os.path.expanduser(path_local_data), os.F_OK)):
+         os.mkdir(os.path.expanduser(path_local_data))
          
-    inifile=os.path.join(path_local_data,"PrestoPronto.ini")     
+    inifile=os.path.join(os.path.expanduser(path_local_data),"PrestoPronto.ini")     
     with open(inifile, 'w') as configfile:
         inivar.write(configfile)     
         configfile.close

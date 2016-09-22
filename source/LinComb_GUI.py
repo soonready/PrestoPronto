@@ -478,9 +478,20 @@ class LinComb_GUI:
     def __init__(self, genitore):
         
 
-        os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+        if os.name == 'nt':
+                os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+        else:
+                os.chdir(os.environ['HOME'])
         #menu
         self.menu=mymenu(genitore)
+	# When pressing Exit in the File menu, the window remains open and I get the following exception:
+	# Exception in Tkinter callback
+	# Traceback (most recent call last):
+  	#   File "/dls_sw/apps/python/anaconda/1.7.0/64/lib/python2.7/lib-tk/Tkinter.py", line 1536, in __call__
+    	#      return self.func(*args)
+	#   File "/dls_sw/apps/PrestoPronto/1.0.0/lib/python2.7/site-packages/PrestoPronto-1.0.0-py2.7.egg/EGG-INFO/scripts/LinComb_GUI.py", line 487, in <lambda>
+        #      self.menu.filemenu.entryconfig(index=0, command= lambda : self.Setlimit("opensf"))
+	#   AttributeError: LinComb_GUI instance has no attribute 'Setlimit'
         self.menu.filemenu.entryconfig(index=0, command= lambda : self.Setlimit("opensf"))    
 
 
