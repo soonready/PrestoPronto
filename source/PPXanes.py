@@ -558,7 +558,7 @@ class XANES():
       #--------------------------------------iffeffit---------------------------------------------------
         self.quadro_Iffefit = Frame(genitore)    #,text = "Correction"
         self.quadro_Iffefit.pack(side = TOP,  fill = X)
-        self.quadro_Eo = LabelFrame(self.quadro_Iffefit, text = "Ifeffit() Eo")    #,text = "Correction"
+        self.quadro_Eo = LabelFrame(self.quadro_Iffefit, text = "Ifeffit E0")    #,text = "Correction"
         self.quadro_Eo.pack(side = LEFT,  fill = X, expand =Y)
         self.quadro_Eo1 = Frame(self.quadro_Eo)
         self.quadro_Eo1.pack(side = LEFT, anchor = W, fill=X, expand =Y)
@@ -567,7 +567,7 @@ class XANES():
                                        xlabel='spectra',
                                        ylabel='position (eV)',    
                                        comment= None, title="Iff Eo")
-        self.quadro_Ej = LabelFrame(self.quadro_Iffefit, text = "Ifeffit e0")    #,text = "Correction"
+        self.quadro_Ej = LabelFrame(self.quadro_Iffefit, text = "Ifeffit edge jump")    #,text = "Correction"
         self.quadro_Ej.pack(side = LEFT,  fill = X, expand =Y)
         self.quadro_Ej1 = Frame(self.quadro_Ej)
         self.quadro_Ej1.pack(side = LEFT, anchor = W, fill=X, expand =Y)

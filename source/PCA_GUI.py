@@ -784,8 +784,10 @@ class ITTFA_G():
         global x_array 
         global component_show
       #___________________________________________________________________________________
-        os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
-        
+        if os.name == 'nt':
+                os.chdir(os.path.join(os.environ['HOMEDRIVE'],os.environ['HOMEPATH']))
+        else:
+                os.chdir(os.environ['HOME'])
       #-----------------------------      Declare      --------------------------------------------------
         self.A = StringVar()
         self._select = StringVar()
