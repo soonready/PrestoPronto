@@ -425,6 +425,7 @@ class ExaPy(_Group):
         return
         
     def red_2_dict(self, sa_attr, subobject):
+        """reduce to dictionary to save binary....."""
         if sa_attr is None: 
             sa_attr=['energy', 'mu', 'k', 'chi', 'charaters'] 
         if subobject is None:

@@ -1,15 +1,19 @@
 from cx_Freeze import setup, Executable
+import scipy
+from os.path import dirname
 
 
-#includes = ["scipy.linalg","numpy"]
-#copyDependentFiles=True
+from cx_Freeze import hooks
+def load_scipy_patched(finder, module):
+    """the scipy module loads items within itself in a way that causes
+        problems without the entire package and a number of other subpackages
+        being present."""
+    finder.IncludePackage("scipy._lib")  # Changed include from scipy.lib to scipy._lib
+    finder.IncludePackage("scipy.misc")
+
+hooks.load_scipy = load_scipy_patched
 
 
-
-excludes = ["pywin", "tcl", "pywin.debugger", "pywin.debugger.dbgcon","pywin.dialogs", "pywin.dialogs.list", "win32com.server","email"] 
-#includes = ["PyQt4.QtCore","PyQt4.QtGui","win32gui","win32com","win32api","html.parser","sys","threading","datetime","time","urllib.request","re","queue","os"] 
-
-                
 
 
 
@@ -17,26 +21,24 @@ com_file=['./Doc',
           'feff6l.exe',
           'README.txt',
           'LICENCE.txt',
-          'ifeffit.exe',
-          'ifeffit_12.dll',
-          'libifcorert.dll',
-          'libifportmd.dll',
-          'libmmd.dll',
           'PrestoPronto.iss']
-
+scipy_path = dirname(scipy.__file__)
+com_file.append(scipy_path)
 
 
 
 packages = [] 
 path = [] 
-excluded_mod=["PyQt4","PyQt4.QtGui","win32gui","pywin", "tcl", "pywin.debugger", "pywin.debugger.dbgcon","pywin.dialogs", "pywin.dialogs.list", "win32com.server","email"]
-included_mod=["scipy.special._ufuncs_cxx",
-               "scipy.integrate.vode",
-               "scipy.integrate.lsoda",
-               "scipy.sparse.csgraph._validation",
-               "FileDialog",
-               "lmfit"
-]#"Tix"
+
+excluded_mod=["collections.abc","PyQt4","PyQt4.QtGui",
+              "win32gui","pywin", "tcl", "pywin.debugger", 
+              "pywin.debugger.dbgcon","pywin.dialogs", 
+              "pywin.dialogs.list", "win32com.server","email"]
+included_mod=[ "FileDialog",
+               "lmfit"]
+           
+before_included=["Tix","scipy.special._ufuncs_cxx","scipy.integrate.vode",
+                  "scipy.integrate.lsoda","scipy.sparse.csgraph._validation"]
 
 #GUI2Exe_Target_1 = Executable(
 #    script = "script.pyw",
@@ -71,5 +73,3 @@ setup(
                        Executable(script ="LinComb_GUI.py", icon = "./PF.ico")
                        ]
         )        
-#"includes": includes,   #"excludes": excludes,#"packages": packages,#"path": path
-#"includes": includes,   #"excludes": excludes,#"packages": packages,#"path": path
