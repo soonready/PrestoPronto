@@ -20,7 +20,7 @@ MODNAME = '_xafs'
 VALID_WINDOWS = ['han', 'fha', 'gau', 'kai', 'par', 'wel', 'sin', 'bes']
 
 def ftwindow(x, xmin=None, xmax=None, dx=1, dx2=None,
-             window='hanning', _larch=None, **kws):
+             window='hanning', **kws):
     """
     create a Fourier transform window array.
 
@@ -120,7 +120,7 @@ def ftwindow(x, xmin=None, xmax=None, dx=1, dx2=None,
 @DefCallArgs("xftr_details",["r", "chir"])
 def xftr(r, chir=None, group=None, rmin=0, rmax=20, with_phase=False,
             dr=1, dr2=None, rw=0, window='kaiser', qmax_out=None,
-            nfft=2048, kstep=0.05, _larch=None, **kws):
+            nfft=2048, kstep=0.05,  **kws):
     """
     reverse XAFS Fourier transform, from chi(R) to chi(q).
 
@@ -202,7 +202,7 @@ def xftr(r, chir=None, group=None, rmin=0, rmax=20, with_phase=False,
 @DefCallArgs("xftf_details",["k", "chi"])
 def xftf(k, chi=None, group=None, kmin=0, kmax=20, kweight=0,
          dk=1, dk2=None, with_phase=False, window='kaiser', rmax_out=10,
-         nfft=2048, kstep=0.05, _larch=None, **kws):
+         nfft=2048, kstep=0.05,  **kws):
     """
     forward XAFS Fourier transform, from chi(k) to chi(R), using
     common XAFS conventions.
@@ -251,14 +251,14 @@ def xftf(k, chi=None, group=None, kmin=0, kmax=20, kweight=0,
 
     cchi, win  = xftf_prep(k, chi, kmin=kmin, kmax=kmax, kweight=kweight,
                                dk=dk, dk2=dk2, nfft=nfft, kstep=kstep,
-                               window=window, _larch=_larch)
+                               window=window)
 
     out = xftf_fast(cchi*win, kstep=kstep, nfft=nfft)
     rstep = pi/(kstep*nfft)
 
     irmax = min(nfft/2, int(1.01 + rmax_out/rstep))
 
-    group = Group(group, _larch=_larch)
+    #group = Group(group)
     r   = rstep * arange(irmax)
     mag = sqrt(out.real**2 + out.imag**2)
     group.kwin =  win[:len(chi)]
@@ -276,7 +276,7 @@ def xftf(k, chi=None, group=None, kmin=0, kmax=20, kweight=0,
 
 
 def xftf_prep(k, chi, kmin=0, kmax=20, kweight=2, dk=1, dk2=None,
-                window='kaiser', nfft=2048, kstep=0.05, _larch=None):
+                window='kaiser', nfft=2048, kstep=0.05):
     """
     calculate weighted chi(k) on uniform grid of len=nfft, and the
     ft window.
@@ -292,7 +292,7 @@ def xftf_prep(k, chi, kmin=0, kmax=20, kweight=2, dk=1, dk2=None,
     win  = ftwindow(k_, xmin=kmin, xmax=kmax, dx=dk, dx2=dk2, window=window)
     return ((chi_[:npts] *k_[:npts]**kweight), win[:npts])
 
-def xftf_fast(chi, nfft=2048, kstep=0.05, _larch=None, **kws):
+def xftf_fast(chi, nfft=2048, kstep=0.05, **kws):
     """
     calculate forward XAFS Fourier transform.  Unlike xftf(),
     this assumes that:
@@ -317,7 +317,7 @@ def xftf_fast(chi, nfft=2048, kstep=0.05, _larch=None, **kws):
     cchi[0:len(chi)] = chi
     return (kstep / sqrt(pi)) * fft(cchi)[:nfft/2]
 
-def xftr_fast(chir, nfft=2048, kstep=0.05, _larch=None, **kws):
+def xftr_fast(chir, nfft=2048, kstep=0.05, **kws):
     """
     calculate reverse XAFS Fourier transform, from chi(R) to
     chi(q), using common XAFS conventions.  This version demands

@@ -12,6 +12,9 @@ global filesel_spectra # list in wich the file selected and not averaged are sto
 class listum(list):
     def __init__(self, *args, **kws):
         super(listum, self).__init__(*args,**kws)
+        self.call_di={'num_deriv':True, 'smoot':0, 'smoot_repeat':0, 
+                      'interpolation':0, 'smoot_num':1,
+                      'L1':None,'L2':None,'L1i':None, 'L2i':None}
         self.call_pe={'e0':None, 'step':None, 'nnorm':3, 'nvict':0, 'pre1':None, 
                    'pre2':-50, 'norm1':100, 'norm2':None, 'make_flat':True}
         self.call_abk={'rbkg':1, 'nknots':None, 'e0':None,'edge_step':None,
@@ -24,15 +27,8 @@ class listum(list):
                                                    'nfft':2048, 'kstep':0.05}
 
     def save(self,filename):
-        savefile={}
-        savefile['data']=[item.red_2_dict() for item in self]
-        savefile['call_pe']=self.call_pe
-        savefile['call_abk']=self.call_abk
-        savefile['call_xftf']=self.call_xftf
-    
-        if '.' in filename:
-            pass
-        else: filename='%s.pickle'%filename
+        if not('.' in filename):
+            filename='%s.pickle'%filename
         with open(filename, 'wb') as handle:
              pickle.dump(savefile, handle)  
         pass

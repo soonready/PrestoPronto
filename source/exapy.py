@@ -37,26 +37,21 @@ import os
 import numpy  as np
 from xtables import elements, QN_Transition 
 from scipy.interpolate import LSQUnivariateSpline as Spline
-global iff 
+global iff                            
 global __verbose__
 __verbose__ = False#True#
 
 MAX_FILESIZE= 12e9
 
-import larch 
-from larch.utils import fixName
+
 
 
 
 # now import larch-specific Python code
-from larch_plugins import xafs
-from larch_plugins.xafs.feffit import feffit_report as myfeffit_report
-
-
-
-# create a larch interpreter, passed to most functions
-my_larch = larch.Interpreter(with_plugins=False)
-
+import delarch 
+from delarch import xafs, Group
+from delarch.utils import fixName
+from delarch.xafs.feffit import feffit_report as myfeffit_report
 
 
 
@@ -73,15 +68,6 @@ def getfloats(txt):
 
 
 
-class _Group(larch.Group):
-    """Gereneric Group class to interface larch Group 
-    """
-    def __init__(self, name=None, **kws):
-        if kws.has_key("_larch"):
-            super(_Group, self).__init__(name=None, **kws)
-        else:
-            super(_Group, self).__init__(name=None, _larch=my_larch, **kws)
-        return      
 #
 
 #
@@ -223,7 +209,7 @@ def read_ascii(fname, labels=None, sort=False, sort_column=0,
     for key, val in attrs.items():
         setattr(group, key, val)
 
-    group.atgrp=_Group(**header_attrs)
+    group.atgrp=Group(**header_attrs)
     return group
 
 
@@ -231,7 +217,7 @@ def read_ascii(fname, labels=None, sort=False, sort_column=0,
 
 
 
-class ExaPy(_Group):
+class ExaPy(Group):
     """EXAFS class defined in order to analyze the Mu signals
     it define till now three function 
     XANES_Norm results in array attributes Nor
@@ -285,7 +271,7 @@ class ExaPy(_Group):
              nnorm will be fit to mu(energy)*energy**nvict of the post-edge region
              energy=[e0+norm1, e0+norm2]."""
           
-          xafs.pre_edge(self, _larch=self._larch, e0=e0, step=step, nnorm=nnorm,
+          xafs.pre_edge(self,  e0=e0, step=step, nnorm=nnorm,
                                  nvict=nvict, pre1=pre1, pre2=pre2, norm1=norm1, 
                                                     norm2=norm2, make_flat=True)
           return   
@@ -329,7 +315,7 @@ class ExaPy(_Group):
          Output arrays are written to the provided group"""
          args=dict(locals())
          del args["self"],args["kws"]
-         xafs.autobk(self, _larch=self._larch,**args)
+         xafs.autobk(self, **args)
          return           
              
         
@@ -374,7 +360,7 @@ class ExaPy(_Group):
         args=dict(locals())#; args.update(kws)
         del args["self"],args["kws"]
         if not(kmax): args["kmax"]=self.k[-1]
-        xafs.xftf(self, _larch=self._larch, **args)
+        xafs.xftf(self,  **args)
         return
   
          
@@ -421,30 +407,8 @@ class ExaPy(_Group):
         Supports First Argument Group convention (with group member names 'r' and 'chir')"""
         args=dict(locals()); args.update(kws)
         del args["self"],args["kws"] 
-        xafs.xftr(self, _larch=self._larch, **args)
+        xafs.xftr(self,  **args)
         return
-        
-    def red_2_dict(self, sa_attr, subobject):
-        """reduce to dictionary to save binary....."""
-        if sa_attr is None: 
-            sa_attr=['energy', 'mu', 'k', 'chi', 'charaters'] 
-        if subobject is None:
-            subobject= self
-        dizio={}
-        for item in sa_attr:
-            if hasattr(subobject,item):
-                value =getattr(subobject,item)
-            else: 
-                continue
-            if issubclass(value, larch.Group):
-                dizio[item]=EmptyC(**value.__dict__)
-            else:    
-               dizio[item]= getattr(subobject,item)
-        return dizio        
-        
-        
-        
-
         
         
 
@@ -466,7 +430,6 @@ class ExaPy(_Group):
         #print 'definite Pathlist'    
         #define self.paramgroup
         if pars is None:
-            self.paramgroup=ParamGroup(_larch=self._larch) 
             for item in self.pathlist: 
                 _oneshellpar(item.label,paramgroup=self.paramgroup)
         else:
@@ -479,19 +442,18 @@ class ExaPy(_Group):
                 self.transform=TransformGroup()
         else: 
             self.transform=transform
-        data=_Group(k=self.k, chi=self.chi)        
+        data=Group(k=self.k, chi=self.chi)        
         self.dataset=FeffitDataSet(data=data, pathlist=self.pathlist, 
-                                   transform=self.transform, _larch=self._larch)
+                                   transform=self.transform)
         if fit:
-            self.fit_out = feffit(params=self.paramgroup, datasets=self.dataset,
-                                                             _larch=self._larch)
-            self.fit_report = feffit_report(self.fit_out, _larch=self._larch)
+            self.fit_out = feffit(params=self.paramgroup, datasets=self.dataset)
+            self.fit_report = feffit_report(self.fit_out)
         return
         
 
 
 #
-class ParamGroup(_Group):
+class ParamGroup(Group):
     """a class to contain parameters
        show all the parameter inside
     """
@@ -511,7 +473,7 @@ def _oneshellpar( label="0", amp=1, del_e0=0, sig2=0.003, del_r=0, vary=True,
        
     ritorna=False
     if paramgroup is None:
-        paramgroup=ParamGroup(_larch=my_larch)
+        paramgroup=ParamGroup()
         ritorna=True
     vario={amp:True, del_e0:True, sig2:True, del_r:True}    
     if vary is True: vary={'amp':True, 'del_e0':True, 'sig2':True, 'del_r':True} 
@@ -519,19 +481,18 @@ def _oneshellpar( label="0", amp=1, del_e0=0, sig2=0.003, del_r=0, vary=True,
     if type(vary)==type(dict):
         if len(vary)!=4: raise ValueError('only 4 argument')
         
-    setattr(paramgroup, "amp"+label,    Parameter(amp, vary=vary['amp'], 
-                                               min=0.05, _larch=my_larch))
+    setattr(paramgroup, "amp"+label,    Parameter(amp, vary=vary['amp'],min=0.05))
     setattr(paramgroup, "del_e0"+label, Parameter(del_e0, vary=vary['del_e0'], 
-                                      min=-10, max=10, _larch=my_larch ))
+                                                              min=-10, max=10 ))
     setattr(paramgroup, "sig2"+label,   Parameter(sig2, vary=vary['sig2'], 
-                                      min=0, max=0.08 , _larch=my_larch))
+                                                              min=0, max=0.08))
     setattr(paramgroup, "del_r"+label,  Parameter(del_r, vary=vary["del_r"], 
-                                   min=-.08, max=0.08 , _larch=my_larch))
+                                                           min=-.08, max=0.08 ))
     
     if ritorna: return paramgroup
     return  
 
-class Parameter(larch.Parameter):
+class Parameter(delarch.Parameter):
     """ returns a parameter object: a floating point value with bounds that can
     be flagged as a variable for a fit, or given an expression to use to
     automatically evaluate its value (as a thunk).
@@ -545,15 +506,14 @@ class Parameter(larch.Parameter):
     the creation of x
     """        
     def __init__(self, value=0, min=None, max=None, vary=False, name=None, 
-                 expr=None, stderr=None, correl=None, units=None, decimals=5,
-                 _larch=my_larch, **kws):
+             expr=None, stderr=None, correl=None, units=None, decimals=5, **kws):
         args=dict(locals()); args.update(kws)
         del args["self"],args["kws"] 
         super(Parameter, self).__init__(**args)
         
              
 #
-def FeffPathGroup(filename=None, _larch=my_larch, label=None, s02=None,
+def FeffPathGroup(filename=None,  label=None, s02=None,
              degen=None, e0=None,ei=None, deltar=None, sigma2=None,
              third=None, fourth=None):
     """Feff Path Group from a *feffNNNN.dat* file.
@@ -601,7 +561,7 @@ def _PathsList(filenames,labels=None):
                       ["amp", "del_e0", "sig2", "del_r"])             #nome parameter
         
         for j,item in enumerate(filenames):
-            pathtype=FeffPathGroup(filename=item,_larch=my_larch)
+            pathtype=FeffPathGroup(filename=item)
             if labels is None:
                 pathtype.label='_%s'%(pathtype.label[-8:-4])
                 if any([i.label for i in pathlist])==pathtype.label:
@@ -625,7 +585,7 @@ class TransformGroup(xafs.TransformGroup):
     recalculated."""
     def __init__(self, kmin=0, kmax=20, kweight=2, dk=4, dk2=None, 
                  window='kaiser', nfft=2048, kstep=0.05, rmin=0, rmax=10, dr=0,
-                 dr2=None, rwindow='hanning', fitspace='r', _larch=my_larch, **kws):
+                 dr2=None, rwindow='hanning', fitspace='r',  **kws):
         args=dict(locals()); args.update(kws)
         del args["self"],args["kws"] 
         super(TransformGroup, self).__init__(**args)
@@ -634,15 +594,14 @@ class TransformGroup(xafs.TransformGroup):
 class FeffitDataSet(xafs.FeffitDataSet):
     """a data + a list of path class + TransformGroup
     """
-    def __init__(self, data=None, pathlist=None, transform=None, 
-                 _larch=my_larch, **kws):
+    def __init__(self, data=None, pathlist=None, transform=None, **kws):
         args=dict(locals()); del args["self"]
         super(FeffitDataSet, self).__init__(**args) 
 
 
 
 
-def feffit(params, datasets, rmax_out=10, path_outputs=True, _larch=my_larch, **kws):
+def feffit(params, datasets, rmax_out=10, path_outputs=True,  **kws):
     """execute a Feffit fit: a fit of feff paths to a list of datasets
 
     Parameters:
@@ -676,10 +635,9 @@ def feffit(params, datasets, rmax_out=10, path_outputs=True, _larch=my_larch, **
     ---------
       
     """
-    return xafs.feffit(params, datasets, _larch=_larch, rmax_out=10, 
-                                              path_outputs=True, **kws)
+    return xafs.feffit(params, datasets,  rmax_out=10, path_outputs=True, **kws)
 
-def feffit_report(result, min_correl=0.1, with_paths=True , _larch=my_larch):
+def feffit_report(result, min_correl=0.1, with_paths=True ):
     """return a printable report of fit for feffit
 
     Parameters:
@@ -693,8 +651,7 @@ def feffit_report(result, min_correl=0.1, with_paths=True , _larch=my_larch):
       printable string of report.
 
     """
-    return myfeffit_report(result, min_correl=0.1, with_paths=True,
-                              _larch=my_larch)
+    return myfeffit_report(result, min_correl=0.1, with_paths=True)
 
 
 #

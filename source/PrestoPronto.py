@@ -254,6 +254,8 @@ class Tscan:
         self.nb.add(self.p3, text="XANES")
         self.XAN= PPXanes.XANES(self.p3)
         self.nb.pack()
+        self.p3.bind('<FocusIn>', self.XAN.FIn)
+        self.p3.bind('<FocusOut>', self.XAN.FOut)        
        #  EXAFS-FT
         self.p4=Frame(self.nb)
         self.nb.add(self.p4, text="EXAFS-FT")
@@ -294,13 +296,7 @@ class Tscan:
     def SelAver2(self):
         self.Avesel.Perform()
         if len(PPset.spectra)>0:
-            self.XAN._deriv_start.set(round(min(PPset.spectra[0].E),3))
-            self.XAN._deriv_end.set(round(max(PPset.spectra[0].E),3))
-            self.XAN._INTxan_start.set(round(min(PPset.spectra[0].E),3))
-            self.XAN._INTxan_end.set(round(max(PPset.spectra[0].E),3))
-            self.XDEF.combo_plot.config(values=PPset.spectra.other_pro.keys())
-            
-            
+            self.XDEF.combo_plot.config(values=PPset.spectra.other_pro.keys())          
         pass
     
     def num_deriv(self,x):
@@ -310,13 +306,7 @@ class Tscan:
         del self.XAN
         self.XAN= PPXanes.XANES(self.p3)
         self.nb.pack()
-        if spectra != []:
-            self.XAN._deriv_start.set(round(min(PPset.spectra[0].E),3))
-            self.XAN._deriv_end.set(round(max(PPset.spectra[0].E),3))
-            self.XAN._TCW_start.set(round(min(PPset.spectra[0].E),3))
-            self.XAN._TCW_end.set(round(max(PPset.spectra[0].E),3))
-            self.XAN._INTxan_start.set(round(min(PPset.spectra[0].E),3))
-            self.XAN._INTxan_end.set(round(max(PPset.spectra[0].E),3))        
+     
         
     
 

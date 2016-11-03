@@ -320,9 +320,12 @@ class Avesel(Rebin.REBIN):
               ,len(PPfs_spec[0].energy),' points reduced to '       
         print  len(PP_spec), ' spectra of '\
               ,len(PP_spec[0].energy),' points\n\n'
-        #print  PPfs_spec.other_pro
-        #print  PP_spec.other_pro  
-        #print  PPset.x
+              
+        
+        PPset.spectra.call_di['L1']=round(min(PPset.spectra[0].E),3)
+        PPset.spectra.call_di['L2']=round(max(PPset.spectra[0].E),3)
+        PPset.spectra.call_di['L1i']=round(min(PPset.spectra[0].E),3)
+        PPset.spectra.call_di['L2i']=round(max(PPset.spectra[0].E),3)
         #print  'tilen',len(PP_spec.other_pro['T1']),'ppsetxlen', len(PPset.x)
         pass
     

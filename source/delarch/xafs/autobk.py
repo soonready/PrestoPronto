@@ -47,7 +47,7 @@ def __resid(pars, ncoefs=1, knots=None, order=3, irbkg=1, nfft=2048,
                            abs(clamp_hi)*scaled_chik[-nclamp:]))
 
 
-#@DefCallArgs("autobk_details",["energy","mu"])
+@DefCallArgs("autobk_details",["energy","mu"])
 def autobk(energy, mu=None, group=None, rbkg=1, nknots=None, e0=None,
            edge_step=None, kmin=0, kmax=None, kweight=1, dk=0.1,
            win='hanning', k_std=None, chi_std=None, nfft=2048, kstep=0.05,

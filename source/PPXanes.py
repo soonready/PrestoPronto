@@ -479,11 +479,11 @@ class XANES():
       #--------------declare----------------------
         self._deriv_end   = StringVar()
         self._deriv_start = StringVar()
-        self.smoot=0
-        self.interpolation =0
-        if num_deriv: 
-            self.smoot_repeat=0
-            self.smoot=1
+        #self.smoot=0
+        #self.interpolation =0
+        #if num_deriv: 
+        #    self.smoot_repeat=0
+        #    self.smoot=1
         self._INTxan_start = StringVar()
         self._INTxan_end   = StringVar()
         self._check_deriv=IntVar()
@@ -627,22 +627,35 @@ class XANES():
         if hasattr(self, "top_der"): 
             print hasattr(self, "top_der"),"\n"
             return
+        c_p=PPset.spectra.call_di
+        c_p['L1']=float(self._deriv_start.get())
+        c_p['L2']=float(self._deriv_end.get())
         self.top_der = Toplevel()
         self.top_der.title("smoot and interpolation parameter") 
         if num_deriv:
-            ini=[self.smoot,self.interpolation ,self.smoot_repeat ,float(self._deriv_start.get()),float(self._deriv_end.get())]
+            ini=[c_p[i] for i in ['smoot_num', 'smoot_repeat',
+                                    'interpolation','L1', 'L2']]
             self.Der_param=DERIVparam_c(self.top_der,ini)
-            self.smoot,self.interpolation,self.smoot_repeat=self.Der_param.smoot ,self.Der_param.interpolation,self.Der_param.smoot_repeat
+            c_p['smoot_num']=self.Der_param.smoot
+            c_p['smoot_repeat']=self.Der_param.smoot_repeat
+            c_p['interpolation']=self.Der_param.interpolation
         else:
-            ini=[self.smoot,self.interpolation ,float(self._deriv_start.get()),float(self._deriv_end.get())]
+            ini=[c_p[i] for i in ['smoot', 'interpolation', 'L1','L2']]
             self.Der_param=DERIVparam_spline(self.top_der,ini)
-            self.smoot,self.interpolation=self.Der_param.smoot ,self.Der_param.interpolation            
+            c_p['smoot']=self.Der_param.smoot
+            c_p['interpolation']=self.Der_param.interpolation
+        PPset.spectra.call_di=c_p  
         del self.Der_param
         del self.top_der
         
         
     def Perform(self):
-        param=PPset.spectra.call_pe
+        c_p=PPset.spectra.call_di
+        p_e=PPset.spectra.call_pe
+        c_p['L1']=float(self._deriv_start.get())
+        c_p['L2']=float(self._deriv_end.get())
+        c_p['L1i']=float(eval(self._INTxan_start.get()))
+        c_p['L2i']=float(eval(self._INTxan_end.get()))
         #-----------------Max derivate  ---------------------    
         if self._check_deriv.get():
             header=list(PPset.spectra.header)
@@ -650,26 +663,75 @@ class XANES():
             if num_deriv:    
                 for item in PPset.spectra:
                     if __verbose__: print "Xanes derivative"
-                    item.bm29Num_der(window_len=self.smoot, step=self.interpolation,
-                                              L1=float(self._deriv_start.get()),
-                                                L2=float(self._deriv_end.get()),
-                                                       repeat=self.smoot_repeat)
+                    item.bm29Num_der(window_len=c_p['smoot_num'], 
+                                     step=c_p['interpolation'],
+                                     L1=c_p['L1'],L2=c_p['L2'],
+                                     repeat=c_p['smoot_repeat'])
+            else:    
+                if self.interpolation !=0:
+                    self.x_deriv=numpy.arange(c_p['L1'],c_p['L2'],
+                                              c_p['interpolation'])
+                else:
+                    self.x_deriv=bt.dat_Truncate(PPset.spectra[0].energy, 
+                                                     c_p['L1'], c_p['L2'])
+                for item in PPset.spectra:
+                    if __verbose__: print "Xanes derivative"
+                    item.bm29derE(sampling=self.x_deriv, L1=c_p['L1'],\
+                                  L2=c_p['L2'], s=c_p['smoot']/100) 
+                  
+                    
+  
+         
+        #-----------------XANES norm  ---------------------  
+        if self._check_xan.get():
+            print "\n ---XANES Normalization---"      
+            header=list(PPset.spectra.header)
+            pb = ttk.Progressbar(self.quadro_perform, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(PPset.spectra))
+            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)            
+            for item in PPset.spectra:
+                if __verbose__: print "Xanes norm"
+                pb.step()
+                pb.update_idletasks()
+                item.XANES_Norm(**p_e)
+            if __verbose__: print "Xanes norm done"
+            pb.destroy()
+            #self._check_xan.set(0)
+            #-----------------Integral---------------------
+        #-----------------XANES int  ---------------------
+        if self._check_INT.get():
+            if self._xflatten.get() and True or False:
+               for i in PPset.spectra:i.INTxan= i.bm29int(L1=x1, L2=x2, attribute='flat')
+            else :
+              for i in PPset.spectra:
+                i.INTxan= i.bm29int(L1=c_p['L1i'],L2=c_p['L2i'],attribute='nor')
+            #-----------------   End   ---------------------
+        #put some reasonable value in the other case
+        if    c_p['L1']==round(min(PPset.spectra[0].E),3) \
+          and c_p['L2']==round(max(PPset.spectra[0].E),3) :
+            c_p['L1']=round(PPset.spectra[0].e0 -50, 2)
+            c_p['L1']=round(PPset.spectra[0].e0 +80, 2)
+        if    c_p['L1i']==round(min(PPset.spectra[0].E),3) \
+          and c_p['L2i']==round(max(PPset.spectra[0].E),3) :
+            c_p['L1i']=round(PPset.spectra[0].e0 -50, 2)
+            c_p['L1i']=round(PPset.spectra[0].e0 +80, 2)   
+        PPset.spectra.call_di=c_p
+        PPset.spectra.call_pe=p_e            
+        self.Define_Plot()
+        print "\n---module XANES done\n"
+        
+
+    def Define_Plot(self):
+        param=PPset.spectra.call_pe
+        #-----------------Max derivate  ---------------------    
+        if self._check_deriv.get():
+            header=list(PPset.spectra.header)
+            if num_deriv:    
                 self.derivate_PlSa_But.x_array= [item.NumDer.x_int for item in PPset.spectra]
                 self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in PPset.spectra]
                 self.derivate_PlSa_But.comments= [header for item in PPset.spectra]
             else:    
-                if self.interpolation !=0:
-                    self.x_deriv=numpy.arange(float(self._deriv_start.get()), \
-                                              float(self._deriv_end.get()),  \
-                                              self.interpolation)
-                else:
-                    self.x_deriv=bt.dat_Truncate(PPset.spectra[0].energy, \
-                                                   float(self._deriv_start.get()), \
-                                                   float(self._deriv_end.get()))
-                for item in PPset.spectra:
-                    if __verbose__: print "Xanes derivative"
-                    item.bm29derE(sampling=self.x_deriv, L1=float(self._deriv_start.get()),\
-                                  L2=float(self._deriv_end.get()), s=self.smoot/100) 
                 self.derivate_PlSa_But.x_array= [self.x_deriv for item in PPset.spectra]
                 self.derivate_PlSa_But.y_array= [item.E_MuFp for item in PPset.spectra]
                 self.derivate_PlSa_But.comments= [header for item in PPset.spectra]                    
@@ -707,30 +769,9 @@ class XANES():
 
         #-----------------XANES norm  ---------------------  
         if self._check_xan.get():
-            print "\n ---XANES Normalization---"      
             header=list(PPset.spectra.header)
-            pb = ttk.Progressbar(self.quadro_perform, orient='horizontal', 
-                                             mode='determinate',
-                                             maximum=len(PPset.spectra))
-            pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)            
-            for item in PPset.spectra:
-                if __verbose__: print "Xanes norm"
-                pb.step()
-                pb.update_idletasks()
-                item.XANES_Norm(**param)
-            if __verbose__: print "Xanes norm done"
-            pb.destroy()
-            #self._check_xan.set(0)
-            #put some reasonable value in the other case
-            self._deriv_start.set(round(PPset.spectra[0].e0 -50, 2))
-            self._deriv_end.set(round(PPset.spectra[0].e0 +80, 2))            
-            self._INTxan_start.set(round(PPset.spectra[0].e0 -50, 2))
-            self._INTxan_end.set(round(PPset.spectra[0].e0 +80, 2))
             self.Xanes_PlSa_But.x_array= [item.energy for item in PPset.spectra]
-            if self._xflatten.get() and True or False:
-                self.Xanes_PlSa_But.y_array= [item.flat for item in PPset.spectra]
-            else:
-                self.Xanes_PlSa_But.y_array= [item.norm for item in PPset.spectra]
+            self.Xanes_PlSa_But.y_array= [item.norm for item in PPset.spectra]
             self.Xanes_PlSa_But.comments= [header for item in PPset.spectra]
             ##comment how calculated XANES norm
             c1 ="# Xanes normalization calc. with "
@@ -767,14 +808,29 @@ class XANES():
                                                %(str(self._INTxan_start.get()), 
                                              str(self._INTxan_end.get()),"\n"))
             self.INTxan_PlSa_But.comments[0].append( "#L  INDEX  Int\n")
-            x1=float(eval(self._INTxan_start.get()))
-            x2=float(eval(self._INTxan_end.get()))
-            if self._xflatten.get() and True or False:
-               for i in PPset.spectra:i.INTxan= i.bm29int(L1=x1, L2=x2, attribute='flat')
-            else :
-               for i in PPset.spectra:i.INTxan= i.bm29int(L1=x1, L2=x2, attribute='nor')
             self.INTxan_PlSa_But.y_array= [[item.INTxan for item in PPset.spectra]]
-        print "\n---module XANES done\n"    
+        print "\n---module XANES done\n"         
+
+
+
+
+
+
+    def FIn(self, event):
+        self._deriv_start.set(PPset.spectra.call_di['L1'])
+        self._deriv_end.set(PPset.spectra.call_di['L2'])
+        self._INTxan_start.set(PPset.spectra.call_di['L1i'])
+        self._INTxan_end.set(PPset.spectra.call_di['L2i'])
+    def FOut(self, event):
+        PPset.spectra.call_di['L1']=self._deriv_start.get()
+        PPset.spectra.call_di['L2']=self._deriv_end.get()
+        PPset.spectra.call_di['L1i']=self._INTxan_start.get()
+        PPset.spectra.call_di['L2i']=self._INTxan_end.get()      
+
+            
+                
+
+
 
 
 
@@ -798,8 +854,12 @@ if __name__ == "__main__":
    for i in filenames:
        PPset.spectra.append(bm29.bm29file(i))
    PPset.spectra.header=['#pipppo\n','#questo eun test\n']   
-   PPset.x=range(1,len(PPset.spectra)+1)      
+   PPset.x=range(1,len(PPset.spectra)+1)  
    radice = Tk()
    radice.title("XANES GUI")
    pippo = XANES(radice)
+   pippo._deriv_start.set(6400)
+   pippo._deriv_end.set(6700)
+   pippo._INTxan_start.set(6400)
+   pippo._INTxan_end.set(6700)   
    radice.mainloop()
