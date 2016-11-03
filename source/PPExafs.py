@@ -678,8 +678,11 @@ class EXAFT():
         c1="#L k  chik**"+ str(w)+"\n"
         for item in self.exa_PlSa_But.comments: item.pop(); item.append(c1)
         self.exa_PlSa_But.title = "EXAFS chi*k**"+str(w)
-        self.exa_PlSa_But.figsub.set_ylabel('$k\chi(k) (\AA^{-%d})$' %w)
-        self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
+        self.exa_PlSa_But.ylabel='$k\chi(k) (\AA^{-%d})$' %w
+        try:
+            self.exa_PlSa_But.y_array= [item.chi*item.k**w for item in PPset.spectra]
+        except AttributeError:
+            pass
 
     def plot2(self):
         self.bkg_PlSa_But.plot(self.quadro_EXA_chi, ext=".bkg", 

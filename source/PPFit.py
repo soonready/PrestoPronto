@@ -35,6 +35,8 @@ import exapy
 
 import PPset
 
+from PPset import inivar
+
 
 
 from TScrolledFrame import TScrolledFrame      

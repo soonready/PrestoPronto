@@ -1,11 +1,13 @@
 import pickle
-import exapy
+import ConfigParser
 
 
-global spectra # list that contain the spectra
-global x       # x to use for saving and plotting
-global xlabel  # xlabel to use for saving and plotting
-global filesel_spectra # list in wich the file selected and not averaged are stored
+
+global inivar           # inifile
+global spectra          # list that contain the spectra
+global x                # x to use for saving and plotting
+global xlabel           # xlabel to use for saving and plotting
+global filesel_spectra  # list in wich the file selected and not averaged are stored
 
 
 
@@ -45,13 +47,19 @@ def openlistum(filenames):
         output.call_abk = inputt['call_abk'] 
         output.call_xftf= inputt['call_xftf']
         return output
-        
+
+
 spectra=listum()
 x=list()
 filesel_spectra=listum()
 xlabel=str()
 parameter=dict()
 
+inivar=ConfigParser.ConfigParser()
+
 max_head=50
+
+
+
 #with open('filename.pickle', 'rb') as handle:
 #  b = pickle.load(handle)

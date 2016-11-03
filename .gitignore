@@ -4,3 +4,4 @@ source/dist
 source/PrestoPronto.egg-info
 *.swp
 source/exapy.py~
+*.py~

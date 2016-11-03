@@ -31,13 +31,14 @@ import bm29
 import numpy
 import utility as ut
 import os
-import ConfigParser
+
 #import zipfile for zipped files
 
 
 import PPset
 from PPset import spectra as PP_spec
 from PPset import filesel_spectra as PPfs_spec
+from PPset import inivar
 
 import PPInput
 import PPAvesel
@@ -52,8 +53,7 @@ global __verbose__
 __verbose__=False#True#
 global __version__
 __version__= "b.1.0.0"
-global inivarst
-inivar=ConfigParser.ConfigParser()
+
 global num_deriv
 num_deriv=True
 
