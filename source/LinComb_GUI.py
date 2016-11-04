@@ -329,7 +329,7 @@ class SETUP():
         for item in self.Standard_list:
             if item._active.get():
                 if item._label.get() in Lista_Standard.keys():
-                   item._label.set(item._label.get()[:-1]+str(self.Standard_list.index(item))) 
+                   item._label.set(item._label.get()[:-1]+str(self.Standard_list.index(item)))
                 Lista_Standard.add(LinComb.standard(label=item._label.get(),
                                                 x=item.file_sel.spectra[0].x,
                                                 y=item.file_sel.spectra[0].y,
@@ -337,8 +337,7 @@ class SETUP():
                                                 value=float2(item._start_value.get()),
                                                 fix=float2(item._fix.get()),
                                                 mini=float2(item._mini.get()),
-                                                maxi=float2(item._maxi.get())
-                                                ))
+                                                maxi=float2(item._maxi.get())))
                 
 
 
@@ -359,10 +358,13 @@ class SETUP():
         self.chisq=list()
         # non so perche??
         linear_comb[0].solve()
-        for item in linear_comb:
+        ## fine test    
+        for j,item in enumerate(linear_comb):
+            if j!=0:
+                item.standards_list.Standard_Parameters=linear_comb[j-1].result.params
             item.solve()
-            value=[par.param.value for par in item.standards_list.itervalues()]
-            error=[par.stderr for par in item.standards_list.Standard_Parameters.itervalues()]
+            value=[par.value for par in item.result.params.itervalues()]
+            error=[par.stderr for par in item.result.params.itervalues()]
             self.Coeff.append(value)
             self.Coeff_error.append(error) 
             self.total.append(sum(value))

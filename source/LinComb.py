@@ -45,13 +45,31 @@ except:
     valid_symbol_name = _issymbol_name
 #########################################################################################################
 class standard():
-    def __init__(self, label,x,y, x0=None,  value=None, fix=False, mini=None,maxi=None,expr=None):  
+    '''
+    x,y + parameter for coefficent
+    label,
+    x,
+    y,
+    x0,
+    value, 
+    fix=False,
+    mini=None,
+    maxi=None,
+    expr=None
+    EX
+    LinComb.standard(label=_label, x=spectra[0].x, y=.spectra[0].y, x0=x_array,
+                     value=float2(start_value),fix=float2(item._fix.get()),
+                     mini=float2(item._mini.get()),maxi=float2(item._maxi.get())
+    '''
+    def __init__(self, label,x,y, x0=None,  value=None, fix=False, 
+                                     mini=None,maxi=None,expr=None, auto=False):  
         self.label=label
         self.param= lmfit.Parameter(self.label, value=value, vary=not(fix), expr=expr,
-            min=mini, max=maxi)
+                                                                min=mini, max=maxi)
         self.x=x
         self.y=y
         self.x0=x0
+        self.auto=value
         if x0 is None:
             pass
         elif np.array_equal(self.x,x0): 
@@ -83,7 +101,17 @@ class standard():
 
 
 #########################################################################################################
-class standard_list(OrdDict):    
+class standard_list(OrdDict):
+    """odered dict of standard class+
+       a property. Standard_Parameters=lmfit.Parameters()
+       the key is defined by the label
+       normally to add item use add function
+       -------------------------------
+       ex:
+       Lista_Standard=standard_list(c,b)
+       Lista_Standard.add(a)
+                                                
+    """
     def __init__(self, *args):
         OrdDict.__init__(self)
         self.Standard_Parameters=lmfit.Parameters()
@@ -103,7 +131,7 @@ class standard_list(OrdDict):
         
         
     def add(self, standard_instance):
-        """convenience function for adding a Parameter:
+        """convenience function for adding a standard:
         with   p = Parameters()
         p.add(name, value=XX, ....)
 
@@ -142,20 +170,24 @@ class LinComb():
         # have similar weigh if not specified
         for item in self.standards_list.itervalues():
             item.interpolation(self.x)
-            if item.param.value==None: n_auto+=1.0
+            #print item.param.value, str(item.param.value), repr(item.param.value)
+            if item.auto is None: n_auto+=1.0
             else:residual-= item.param.value
         if n_auto>0:    
             average=residual/n_auto
             for key,dic_value in self.standards_list.iteritems():
-                if dic_value.param.value==None:
+                if dic_value.auto is None:
                     self.standards_list.Standard_Parameters[key].value=average
         self.D= np.column_stack([self.standards_list[key].y0 for key in self.standards_list])
-
+        #####test####
+        #print 'average', average
+        #for key,dic_value in self.standards_list.iteritems():
+        #    print key, self.standards_list.Standard_Parameters[key].value
         
             
 
         
-    def solve(self):
+    def solve(self, verbose=False):
         def residual(params, D, data=None):
             # unpack parameters:
             #  extract .value attribute for each parameter
@@ -165,10 +197,11 @@ class LinComb():
                 return model
             return (model - data)
         self.result = lmfit.minimize(residual, self.standards_list.Standard_Parameters, args=(self.D, self.y))
-        #print self.result.chisqr
-        #print 'Best-Fit Values:'
-        #for name, par in self.standards_list.Standard_Parameters.items():
-        #    print '  %s = %.4f +/- %.4f ' % (name, par.value, par.stderr)
+        if verbose:
+            print self.result.chisqr
+            print 'Best-Fit Values:'
+            for name, par in self.result.params.items():
+                print '  %s = %.4f +/- %.4f ' % (name, par.value, par.stderr)
         
         
 
