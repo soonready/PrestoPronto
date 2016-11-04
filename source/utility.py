@@ -86,7 +86,7 @@ def filewrite(filename,  newdata, comment=None, footers=None,fmt='%1.10f '):
         if comment is None:
 		   savetxt(outFile, newdata, fmt=fmt)
         else:
-           outFile.writelines(comment)
+           outFile.writelines([s.encode('UTF-8') for s in comment])
            savetxt(outFile, newdata, fmt=fmt)#%1.10f %1.8f %1.8f %d  %d %d %d %d 
         if 	not(footers is None):
             outFile.writelines(footers) 

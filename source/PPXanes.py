@@ -674,32 +674,26 @@ class XANES():
                 self.derivate_PlSa_But.y_array= [item.E_MuFp for item in PPset.spectra]
                 self.derivate_PlSa_But.comments= [header for item in PPset.spectra]                    
                     
-            for item in self.derivate_PlSa_But.comments: 
-                c1 ="# Derivative calc. between "+ self._deriv_start.get() + \
-                                             " and "+ self._deriv_end.get()+"\n"
-                #item.append(c1)
-                if num_deriv:
-                    c1 = "# Num. derivative calc.  with smoot= %1.8f ," \
-                                   "interpolation= %1.4f, repeated444= %2d\n" %(
-                              self.smoot, self.interpolation ,self.smoot_repeat)
-                else:
-                    c1 = "# Spl derivative  calc.  with smoot= %1.8f ,"\
-                                                "interpolation= %1.4f\n" %(
-                                                self.smoot, self.interpolation)
-                item.append(c1)
-                item.append("#L E  Derivate_smot"+str(self.smoot)+"\n")    
+
+            c1 ="# Derivative calc. between "+ self._deriv_start.get() + \
+                                         " and "+ self._deriv_end.get()+"\n"
+            #item.append(c1)
+            if num_deriv:
+                c1 = "# Num. derivative calc.  with smoot= %1.8f ," \
+                               "interpolation= %1.4f, repeated= %2d\n" %(
+                          self.smoot, self.interpolation ,self.smoot_repeat)
+            else:
+                c1 = "# Spl derivative  calc.  with smoot= %1.8f ,"\
+                                            "interpolation= %1.4f\n" %(
+                                            self.smoot, self.interpolation)
+                                            
+            self.derivate_PlSa_But.comments[0].append(c1)
+            self.derivate_PlSa_But.comments[0].append("#L E  Derivate_smot"+str(self.smoot)+"\n")    
          
             self.Max_PlSa_But.x_array= [PPset.x]
-            self.Max_PlSa_But.comments=[]                                 
-            self.Max_PlSa_But.comments.append(header)
-            c1 ="# Max derivative calc. between "+ self._deriv_start.get()+" and "+ self._deriv_end.get()+"\n"
-            self.Max_PlSa_But.comments[0].append(c1)
-            if num_deriv: 
-                c1 = "# Max derivative calc.  with smoot= %1.8f ,interpolation= %1.4f, repeated= %1.4f\n" %(
-                                                self.smoot, self.interpolation,self.smoot_repeat)
-            self.Max_PlSa_But.comments[0].append(c1)
-            self.Max_PlSa_But.comments[0].append(PPset.spectra.header)
-            self.Max_PlSa_But.comments[0].append( "#L  index   Derivate_Max\n")
+            self.Max_PlSa_But.comments=[]
+            self.Max_PlSa_But.comments.append(list(self.derivate_PlSa_But.comments[0]))
+            self.Max_PlSa_But.comments[0][-1]= "#  index   Derivate_Max\n"
             for item in PPset.spectra:
                 self.Max_PlSa_But.y_array= [[item.NumDer.x_int[numpy.argmax(item.NumDer.deriv)] for item in PPset.spectra]]        
 
