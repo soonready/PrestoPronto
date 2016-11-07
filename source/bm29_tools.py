@@ -178,7 +178,7 @@ def dat_Truncate(Data,before=None,after=None,ind=0,direction="Column"):
             
             
         if len(Data.shape)==1:
-            Data=scipy.compress(((before< Data)&(Data<after)),Data) #axis =0
+            Data=scipy.compress(((before<= Data)&(Data<=after)),Data) #axis =0
         else:    
             if direction=="Row":
                     Data=Data.transpose()

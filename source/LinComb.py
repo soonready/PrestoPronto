@@ -46,18 +46,19 @@ except:
 #########################################################################################################
 class standard():
     '''
-    x,y + parameter for coefficent
-    label,
-    x,
-    y,
-    x0,
-    value, 
-    fix=False,
-    mini=None,
-    maxi=None,
-    expr=None
-    EX
-    LinComb.standard(label=_label, x=spectra[0].x, y=.spectra[0].y, x0=x_array,
+       x,y + parameter for coefficent
+       label 
+       x,     x corresponding to the y
+       y,     y
+       x0:    x point on wich the linear combination fit should be done
+       
+       value: start value for coefficent  
+       fix=(False), could be varing during the fit??
+       mini=None,  mini value 
+       maxi=None,  max value 
+       expr=None   expression for define constrain
+       EX:
+       LinComb.standard(label=_label, x=spectra[0].x, y=.spectra[0].y, x0=x_array,
                      value=float2(start_value),fix=float2(item._fix.get()),
                      mini=float2(item._mini.get()),maxi=float2(item._maxi.get())
     '''
