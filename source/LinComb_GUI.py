@@ -30,6 +30,8 @@
 
 
 from   Tkinter import *
+import tkMessageBox
+
 import ttk
 #import tkFileDialog
 import numpy
@@ -232,9 +234,9 @@ class SETUP():
         Button(Quadro_Par3, text="Add one Standard" ,command = self.add_standard,    
                                       width = 13 
                                       ).pack(side=LEFT, padx=3, pady=1,anchor =N)
-        Quadro_Par4=Frame(genitore)
-        Quadro_Par4.pack(side = TOP, anchor= W, expand =N, fill = BOTH, pady=15)         
-        self.Button_fit=Button(Quadro_Par4, text="FIT" ,command = self.Perform,    
+        self.Quadro_Par4=Frame(genitore)
+        self.Quadro_Par4.pack(side = TOP, anchor= W, expand =N, fill = BOTH, pady=15)         
+        self.Button_fit=Button(self.Quadro_Par4, text="FIT" ,command = self.Perform,    
                                       width = 13 
                                       )                                  
         self.Button_fit.pack(side=LEFT, padx=3, pady=1,anchor =N)                                  
@@ -318,8 +320,8 @@ class SETUP():
         global sel  # define the range of spectra used
         global x_array
         sel=ut.string_range(self._sel.get())
-        x_array=self.file_sel.x_array[0]
-        start, end =  self.retr_ranges()    
+        start, end =  self.retr_ranges() 
+        x_array=bt.dat_Truncate(self.file_sel.x_array[0],start, end)
         Lista_Standard=LinComb.standard_list()
         def float2(x):
             try:
@@ -327,9 +329,14 @@ class SETUP():
             except:
                 return None
         for item in self.Standard_list:
-            if item._active.get():
+            try:
+              if item._active.get():
                 if item._label.get() in Lista_Standard.keys():
-                   item._label.set(item._label.get()[:-1]+str(self.Standard_list.index(item)))
+                   # change already used label
+                   labelx='%s%d'%(item._label.get()[:-1],
+                                  self.Standard_list.index(item))
+                   item._label.set(labelx)
+                   
                 Lista_Standard.add(LinComb.standard(label=item._label.get(),
                                                 x=item.file_sel.spectra[0].x,
                                                 y=item.file_sel.spectra[0].y,
@@ -338,9 +345,24 @@ class SETUP():
                                                 fix=float2(item._fix.get()),
                                                 mini=float2(item._mini.get()),
                                                 maxi=float2(item._maxi.get())))
-                
+            except ValueError as err:
+              if 'Found x value not in the domain' in err:
+                  a= 'Found x value outside %s ranges,' %item._label.get()
+                  a='%s\nfitting range will be decreased' % a
+                  messager=a='%s\nPlease Fit again\n' % a 
+                  newmin=item.file_sel.spectra[0].x.min()
+                  newmin=newmin if newmin>x_array.min() else  x_array.min()
+                  self._fromf.set(str(round(newmin)))
+                  newmax=item.file_sel.spectra[0].x.max()
+                  newmax=newmax if newmax<x_array.max() else  x_array.max()                  
+                  self._tof.set(str(round(newmax))) 
+                  print messager
+                  tkMessageBox.showinfo("Please fit again\n", messager)
+                  raise ValueError('Found x value not in the domain')
+              else:
+                  raise ValueError(err)
 
-
+                    
 
         linear_comb=list()
         trunc=lambda x : bt.dat_Truncate([x_array,self.file_sel.spectra[x].y], start, end)
@@ -358,7 +380,11 @@ class SETUP():
         self.chisq=list()
         # non so perche??
         linear_comb[0].solve()
-        ## fine test    
+        ## fine test 
+        pb = ttk.Progressbar(self.Quadro_Par4, orient='horizontal', 
+                                             mode='determinate',
+                                             maximum=len(linear_comb))
+        pb.pack(side = LEFT,anchor = W, expand = 1, fill = X)         
         for j,item in enumerate(linear_comb):
             if j!=0:
                 item.standards_list.Standard_Parameters=linear_comb[j-1].result.params
@@ -371,6 +397,9 @@ class SETUP():
             self.total_error.append(sum(error))            
             self.residual.append(item.result.residual)
             self.chisq.append(item.result.chisqr)
+            pb.step()
+            pb.update_idletasks()
+        pb.destroy()   
         #print self.Coeff    
         self.Coeff=numpy.transpose(numpy.array(self.Coeff))    
         self.Coeff_error=numpy.transpose(numpy.array(self.Coeff_error)) 
@@ -521,7 +550,15 @@ class LinComb_GUI:
     #--------------------Perform PCA--------------------------------------------
     def perform_FIT(self):
         global sel  # define the range of spectra used
-        self.SETUP.Perform()
+        try:
+            self.SETUP.Perform()
+        except ValueError as err:
+            if 'Found x value not in the domain' in err:
+                return
+            else:
+                raise ValueError(err)
+                
+                
         self.Results.Coeff=self.SETUP.Coeff
         
         #compare individual fit                 
