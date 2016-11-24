@@ -515,6 +515,20 @@ class Gen_QE():
     def browse_command2(self):
         self.filesel.browse_command()
         fil_spec[:]=[]
+        
+        #### inizio adjust if no trailing zeros are present on the numbers
+        lungh_str=map(len,self.filesel.filenames)
+        lset=set(lungh_str)
+        if len(lset)>1:
+          lungh_str=numpy.array(lungh_str)  
+          li_ol=numpy.array(self.filesel.filenames)  
+          li_ne=[]
+          for lu in sorted(lset):
+              li_ne.extend(li_ol[lungh_str==lu])
+          self.filesel.filenames=li_ne    
+        #### fine adjust if no trailing zeros are present on the numbers      
+            
+        
         colwin=Column_Window(self.filesel.filenames)
         #colwin.top_con.wait_window()
         self.pulsante_Defcor.configure(relief="raised")
