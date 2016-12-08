@@ -160,18 +160,20 @@ class LinComb():
         self.standard_list= standards
         self.D=set of all y0 per ogni standard
    """
-    def __init__(self,x,y, standards):
+    def __init__(self,x,y, standards, interpolate=True):
         self.x=x
         self.y=y
         self.standards_list=standards
         n_auto=0
         residual=1
+           
+        
         #to make a first estimation of the values
         #ipothesis is that the total is 1 and all standard 
         # have similar weigh if not specified
-        for item in self.standards_list.itervalues():
-            item.interpolation(self.x)
-            #print item.param.value, str(item.param.value), repr(item.param.value)
+        for key, item in self.standards_list.iteritems():
+            if interpolate: 
+               self.standards_list[key].interpolation(self.x) #not needed
             if item.auto is None: n_auto+=1.0
             else:residual-= item.param.value
         if n_auto>0:    
@@ -180,6 +182,8 @@ class LinComb():
                 if dic_value.auto is None:
                     self.standards_list.Standard_Parameters[key].value=average
         self.D= np.column_stack([self.standards_list[key].y0 for key in self.standards_list])
+
+            
         #####test####
         #print 'average', average
         #for key,dic_value in self.standards_list.iteritems():
@@ -203,7 +207,7 @@ class LinComb():
             print 'Best-Fit Values:'
             for name, par in self.result.params.items():
                 print '  %s = %.4f +/- %.4f ' % (name, par.value, par.stderr)
-        
+
         
 
 ################################################################################

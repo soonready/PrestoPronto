@@ -165,6 +165,9 @@ def dat_Truncate(Data,before=None,after=None,ind=0,direction="Column"):
                        ' direction = string with value Column or Row,')
         
         if  isinstance(Data,list):
+            if len(set(map(len,Data)))>1:
+                 raise ValueError,(
+                   'x and y must have same first dimension' )
             sbefore= bisect.bisect_left(Data[ind],before)
             safter=  bisect.bisect_right(Data[ind],after)
             if (after) == None:

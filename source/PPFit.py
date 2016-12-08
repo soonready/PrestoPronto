@@ -540,8 +540,7 @@ class FIT:
             commentarray = ["# "+j+'_%s'%(str(number_Path)) for item in PPset.spectra]
             #setattr(bu_attrib, "comments", commentarray)
             setattr(bu_attrib, "error", True)
-        self.r1_PlSa_But.y_array=[numpy.array(self.r1_PlSa_But.y_array[0])+
-                                    self.FeffPaths[number_Path].reff ]    
+        self.r1_PlSa_But.y_array=[numpy.array(self.r1_PlSa_But.y_array[0])]    
         return
           
              

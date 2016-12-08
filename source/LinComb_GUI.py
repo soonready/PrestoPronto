@@ -321,13 +321,16 @@ class SETUP():
         global x_array
         sel=ut.string_range(self._sel.get())
         start, end =  self.retr_ranges() 
-        x_array=bt.dat_Truncate(self.file_sel.x_array[0],start, end)
+        x_all=self.file_sel.x_array[0]
+        x_array=bt.dat_Truncate(x_all,start, end)
         Lista_Standard=LinComb.standard_list()
         def float2(x):
+            '''test if a value is a float'''
             try:
                 return float(x)
             except:
                 return None
+        # define the list of standart to be used in the refinement     
         for item in self.Standard_list:
             try:
               if item._active.get():
@@ -352,10 +355,10 @@ class SETUP():
                   messager=a='%s\nPlease Fit again\n' % a 
                   newmin=item.file_sel.spectra[0].x.min()
                   newmin=newmin if newmin>x_array.min() else  x_array.min()
-                  self._fromf.set(str(round(newmin)))
+                  self._fromf.set(str(round(newmin+0.5)))
                   newmax=item.file_sel.spectra[0].x.max()
                   newmax=newmax if newmax<x_array.max() else  x_array.max()                  
-                  self._tof.set(str(round(newmax))) 
+                  self._tof.set(str(round(newmax-0.5))) 
                   print messager
                   tkMessageBox.showinfo("Please fit again\n", messager)
                   raise ValueError('Found x value not in the domain')
@@ -365,9 +368,10 @@ class SETUP():
                     
 
         linear_comb=list()
-        trunc=lambda x : bt.dat_Truncate([x_array,self.file_sel.spectra[x].y], start, end)
+        trunc=lambda x : bt.dat_Truncate([x_all, self.file_sel.spectra[x].y], start, end)
         #for the column in selected spectra
         for column in sel:
+            #pylab.plot(x_array,self.file_sel.spectra[column].y, 'o')
             x,y=trunc(column)
             linear_comb.append(LinComb.LinComb(
                                x,y, Lista_Standard))
@@ -399,8 +403,7 @@ class SETUP():
             self.chisq.append(item.result.chisqr)
             pb.step()
             pb.update_idletasks()
-        pb.destroy()   
-        #print self.Coeff    
+        pb.destroy()      
         self.Coeff=numpy.transpose(numpy.array(self.Coeff))    
         self.Coeff_error=numpy.transpose(numpy.array(self.Coeff_error)) 
         print "#"*20,"\nFit Done"
@@ -410,7 +413,19 @@ class SETUP():
 
 #########################################################################################################
 ##################################       REsults     ####################################################
-        
+class Cspectro:
+    """class containing information for each simulation
+    """
+    def __init__(self,x,y,z,r,name,*args):
+        self.x=x
+        self.exp=y
+        self.sim=z
+        self.res=r
+        for i,item in enumerate(name):
+            setattr(self,item,args[i])
+
+
+
 class Results_Plot(LabelFrame):
     def __init__(self, genitore):
         
@@ -449,12 +464,15 @@ class Results_Plot(LabelFrame):
     
     
     def Comn_res(self):
+        """Calculate the the model for each spectra 
+         a list of Cspectro element containing sim exp and x is done
+        """
         global linear_comb
         global sel
         global x_array
         spectro=[]
         #------------------------
-        name=[]
+        name=[]   # name will contain the name of each standard
         for standard_name in linear_comb[0].standards_list:
             name.append(standard_name)
         #------------------------
@@ -489,17 +507,10 @@ class Results_Plot(LabelFrame):
         self.grap_win=ut.ParamGraph(self.graphframe, spectro, "x", ["exp","sim","res"]+name)
         self.grap_win.plot(self.num)
 
-class Cspectro:
-    def __init__(self,x,y,z,r,name,*args):
-        self.x=x
-        self.exp=y
-        self.sim=z
-        self.res=r
-        for i,item in enumerate(name):
-            setattr(self,item,args[i])
+
 
 #########################################################################################################
-##################################       ITFA     #######################################################
+##################################       TEST     #######################################################
 #########################################################################################################
 #########################################################################################################
 
@@ -561,7 +572,7 @@ class LinComb_GUI:
                 
         self.Results.Coeff=self.SETUP.Coeff
         
-        #compare individual fit                 
+        #  comparison spectra the values will be modified by compare function  
         self.Results.n1_PlSa_But.x_array=[sel for item in self.SETUP.Coeff]
         self.Results.n1_PlSa_But.y_array=list(self.SETUP.Coeff)
         self.Results.n1_PlSa_But.z_array=list(self.SETUP.Coeff_error)
@@ -572,12 +583,12 @@ class LinComb_GUI:
         self.Results.n2_PlSa_But.x_array=[sel]
         self.Results.n2_PlSa_But.y_array=[self.SETUP.chisq]
         
-        
+        #total       
         self.Results.n4_PlSa_But.x_array=[sel]
         self.Results.n4_PlSa_But.y_array=[self.SETUP.total]
         self.Results.n4_PlSa_But.z_array=[self.SETUP.total_error]
 
-        "Coeff."
+        # coefficents         
         self.Results.n3_PlSa_But.x_array=[sel for item in self.SETUP.Coeff]
         self.Results.n3_PlSa_But.y_array=list(self.SETUP.Coeff)
         self.Results.n3_PlSa_But.z_array=list(self.SETUP.Coeff_error)
@@ -590,19 +601,6 @@ class LinComb_GUI:
         except:
             pass
         
-
-        #for item in linear_comb:
-        #                                       [item.NumDer.x_int for item in spectra]
-        #        self.derivate_PlSa_But.y_array= [item.NumDer.deriv for item in spectra]
-        #        self.derivate_PlSa_But.comments= [item.comments[:-1] for item in spectra]
-            
-
-            
-        
-        #self.PCA.Perform()
-        #self.nb.select(1)
-        
-
 
         
 
