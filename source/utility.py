@@ -38,6 +38,8 @@ from numpy import loadtxt,savetxt, array, column_stack,log
 __singlefile__=True
 from scipy import interpolate
 
+ut_direct=os.getcwd()
+
 #max number of_nc
 max_nc=51
 
@@ -454,53 +456,24 @@ class Browsefile_plot_mono(Browsefile_plot):
 
 import matplotlib
 matplotlib.interactive(False)
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, cursors
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, 
+                                               NavigationToolbar2TkAgg,
+                                               cursors, ToolTip)
+
 from matplotlib.backend_bases import key_press_handler
 
+
 class CustomNavToll(NavigationToolbar2TkAgg):
-    def __init__(self,canvas_,parent_,Graph):
-        self.toolitems = (
-            ('Home', 'Reset original view', 'home', 'home'),
-            ('Back', 'Back to  previous view', 'back', 'back'),
-            ('Forward', 'Forward to next view', 'forward', 'forward'),
-            (None, None, None, None),
-            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
-            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
-            (None, None, None, None),
-            ('Subplots', 'Configure subplots', 'subplots', 'configure_subplots'),
-            ('Save', 'Save the figure', 'filesave', 'save_figure'),
-            ('Txt', 'Save a txt file', 'txtsave', 'save_txt'),
-             )
-        self.graph=Graph
-        NavigationToolbar2TkAgg.__init__(self,canvas_,parent_)
-        
-        
-    def save_txt(self, *args):
-        if hasattr(self.graph, 'curves'):
-            f_curves=self.graph.curves[0]._x
-            for item in self.graph.curves:
-                f_curves=column_stack((f_curves,item._y))
-        elif hasattr(self.graph, 'errcurves'):
-            f_curves=self.graph.errcurves[0][0]._x
-            for item in self.graph.errcurves:
-                f_curves=column_stack((f_curves, item[0]._y, 
-                                       item[0]._y-item[1][0]._y  ))
-        else:
-            return
-        if hasattr(self.graph, 'calcurves'):
-            for item in self.graph.calcurves:
-                f_curves=column_stack((f_curves,item._y))
-        radix = tkFileDialog.asksaveasfilename(title='askfile')
-        if radix !='':
-            comment_lin='# x '
-            if hasattr(self.graph, 'yattr'):
-                comment_lin='# x '+  ' '.join(self.graph.yattr)+'\n'
-            else:
-                comment_lin='# x %d*curves [%d*calcurves]\n' % self.graph.tot_l
-            filewrite(radix,  f_curves, comment_lin)    
-            
-            
-          
+    def add_item(self, text, imfile, command, tooltip_te=None):
+        im = Tk.PhotoImage(master=self, file=imfile)
+        b = Tk.Button(master=self, text=text, 
+                      padx=2, pady=2, image=im, command=command)
+        b._ntimage = im
+        b.pack(side=Tk.LEFT)
+        if tooltip_te is not None:
+           ToolTip.createToolTip(b, tooltip_te)
+        return 
+                    
         
 
 
@@ -513,7 +486,10 @@ class Graph:
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.top)
         self.canvas.show()
-        self.toolbar = CustomNavToll(self.canvas,  self.top, self)
+        self.toolbar = CustomNavToll(self.canvas,  self.top)
+        imfile=os.path.join(ut_direct, './txtsave.gif')
+        self.toolbar.add_item(text='Save', imfile=imfile,
+                              command=self.save_txt, tooltip_te='Save as txt')
         self.toolbar.update()
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
@@ -690,9 +666,35 @@ class Graph:
         if hasattr(self, "curves"): del self.curves
         if hasattr(self, "curves"): del self.calcurves
         self.canvas.draw() 
+
+    def save_txt(self, *args):
+        if hasattr(self, 'curves'):
+            f_curves=self.curves[0]._x
+            for item in self.curves:
+                f_curves=column_stack((f_curves,item._y))
+            if hasattr(self.graph, 'calcurves'):
+                for item in self.graph.calcurves:
+                    f_curves=column_stack((f_curves,item._y))        
+        elif hasattr(self, 'errcurves'):
+            f_curves=self.errcurves[0][0]._x
+            for item in self.errcurves:
+                f_curves=column_stack((f_curves, item[0]._y, 
+                                       item[0]._y-item[1][0]._y  ))
+        else:
+            return
+        radix = tkFileDialog.asksaveasfilename(title='askfile')
+        if radix !='':
+            comment_lin='# x '
+            if hasattr(self, 'yattr'):
+                comment_lin='# x '+  ' '.join(self.yattr)+'\n'
+            else:
+                comment_lin='# x %d*curves [%d*calcurves]\n' % self.tot_l
+            filewrite(radix,  f_curves, comment_lin) 
+
         
-        
-class ParamGraph:
+
+
+class ParamGraph(Graph):
     """
     class to have a  graph windows interface with some line to obtain some values
     genitore = quadro in wich insert the graph, (often is a top windows)
