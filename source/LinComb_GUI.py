@@ -458,7 +458,7 @@ class Results_Plot(LabelFrame):
         self.quadro_n4Bu= LabelFrame(self.quadro_PlotP1, text="Sum of coeff.")
         self.quadro_n4Bu.grid(column=1,row=1, sticky=N+E+W+S )
         self.n4_PlSa_But=ut.PloteSaveB(self.quadro_n4Bu, ext="" ,comment= ["Sum of coeff.\n"], 
-                                       title="Sum of coeff.",error=True)
+                                       title="# Sum of coeff., error",error=True)
             
     
     
@@ -496,8 +496,7 @@ class Results_Plot(LabelFrame):
         
 
     def Compare(self):
-        if hasattr(self,"total"):      pass
-        else:   spectro,name =self.Comn_res()
+        spectro,name =self.Comn_res()
         self.num=0
         self.top = Toplevel()
         self.top.title("COMPARES  ")#+ str(self.comp.get())+ " component")        

@@ -38,6 +38,9 @@ from numpy import loadtxt,savetxt, array, column_stack,log
 __singlefile__=True
 from scipy import interpolate
 
+#max number of_nc
+max_nc=51
+
 
 def getfloats(txt):
     """return list of floats from a string 
@@ -151,7 +154,7 @@ class Browse_file:
         self.filenames = []
         if self.singlefile:
             filenames = tkFileDialog.askopenfilename()   ###
-            print filenames, type(filenames)
+            #print filenames, type(filenames)
             self.filenames.append(filenames)
         else:
             filenames = tkFileDialog.askopenfilenames()
@@ -291,7 +294,7 @@ class PloteSaveB():
             radix = tkFileDialog.asksaveasfilename(title=tit) 
             data=datalize(self.x_array[0],*self.y_array)
             filewrite(radix,  data, self.comments[0])   
-            if self.z_array: 
+            if self.z_array:
                 data=datalize(self.x_array[0],*self.z_array)
                 if self.error:
                     filewrite(radix+"_error",  data, self.comments[0])
@@ -454,6 +457,52 @@ matplotlib.interactive(False)
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, cursors
 from matplotlib.backend_bases import key_press_handler
 
+class CustomNavToll(NavigationToolbar2TkAgg):
+    def __init__(self,canvas_,parent_,Graph):
+        self.toolitems = (
+            ('Home', 'Reset original view', 'home', 'home'),
+            ('Back', 'Back to  previous view', 'back', 'back'),
+            ('Forward', 'Forward to next view', 'forward', 'forward'),
+            (None, None, None, None),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            (None, None, None, None),
+            ('Subplots', 'Configure subplots', 'subplots', 'configure_subplots'),
+            ('Save', 'Save the figure', 'filesave', 'save_figure'),
+            ('Txt', 'Save a txt file', 'txtsave', 'save_txt'),
+             )
+        self.graph=Graph
+        NavigationToolbar2TkAgg.__init__(self,canvas_,parent_)
+        
+        
+    def save_txt(self, *args):
+        if hasattr(self.graph, 'curves'):
+            f_curves=self.graph.curves[0]._x
+            for item in self.graph.curves:
+                f_curves=column_stack((f_curves,item._y))
+        elif hasattr(self.graph, 'errcurves'):
+            f_curves=self.graph.errcurves[0][0]._x
+            for item in self.graph.errcurves:
+                f_curves=column_stack((f_curves, item[0]._y, 
+                                       item[0]._y-item[1][0]._y  ))
+        else:
+            return
+        if hasattr(self.graph, 'calcurves'):
+            for item in self.graph.calcurves:
+                f_curves=column_stack((f_curves,item._y))
+        radix = tkFileDialog.asksaveasfilename(title='askfile')
+        if radix !='':
+            comment_lin='# x '
+            if hasattr(self.graph, 'yattr'):
+                comment_lin='# x '+  ' '.join(self.graph.yattr)+'\n'
+            else:
+                comment_lin='# x %d*curves [%d*calcurves]\n' % self.graph.tot_l
+            filewrite(radix,  f_curves, comment_lin)    
+            
+            
+          
+        
+
 
 class Graph:
     def __init__(self,title=None):
@@ -464,7 +513,7 @@ class Graph:
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.top)
         self.canvas.show()
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  self.top)
+        self.toolbar = CustomNavToll(self.canvas,  self.top, self)
         self.toolbar.update()
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
@@ -496,12 +545,18 @@ class Graph:
     def errorbar(self, x_array, y_array, z_array, comment= None,title=None, ylabel= "Mu (a.u.)", xlabel="Energy (eV)"):
        if (comment) is None:
             comment = [None for i in x_array]
-       for item in range(len(x_array)):     
-           self.errcurves = self.figsub.errorbar( x_array[item], y_array[item], z_array[item], label= comment[item] )  #,
+       self.errcurves=[]     
+       for item in range(len(x_array)):
+           #print "sdsdsd",item
+           self.errcurves.append(self.figsub.errorbar( x_array[item], 
+                                                   y_array[item],
+                                                   z_array[item],
+                                                   label= comment[item]))
        self.figsub.set_ylabel(ylabel, fontsize = 8)
        self.figsub.set_xlabel(xlabel, fontsize = 8)
        if any(comment): 
             self.figsub.legend()
+            self.yattr=comment  #just for savetxt method of the navbar
        if (title): self.figsub.set_title(title)
        self.toolbar.update()
        step=x_array[0][1]-x_array[0][1]
@@ -509,14 +564,17 @@ class Graph:
        self.figsub.set_xlim(xmin=x_array[0][0]-step, xmax=x_array[0][-1]+step)
        self.canvas.draw()
        self.figsub.set_autoscale_on(False)
+       
 
     def plot(self, x_array, y_array, comment= None,title=None, ylabel= None, xlabel=None):
        """ycalcurves = array, calcurves = line!!!!!!!"""
        #print len(x_array)
        #print "*******************"
        #print len(y_array[0])
+       self.x_array=x_array
        if (comment) is None:
             comment = [None for i in x_array]
+       #controlla se le curve sono gia state fatte     
        if hasattr(self, "curves") and hasattr(self, "calcurves"):
             pass
        elif hasattr(self, "curves"):
@@ -527,46 +585,104 @@ class Graph:
             for item in self.curves: item.set_marker('+')
        else:
             self.ycurves  =  y_array
-            if (len(y_array)>1)and(not(hasattr(self, "slider"))) :
-                    self.slider = Tk.Scale(self.top, from_= 0, to=1,       #
-                                                     command= self.scale,   #variable= self.sh, 
-                                                     orient=Tk.VERTICAL,
-                                                     label= "Shift"
-                                                     )
-                    self.slider.pack(side = Tk.LEFT,fill = Tk.BOTH, anchor = Tk.W,pady = 15, ipady = 0)
-            self.curves = self.figsub.plot( x_array[0], y_array[0], label= comment[0] )  #,
-            for i in  range(len(x_array)-1):
-                self.curves += self.figsub.plot(x_array[i+1], y_array[i+1], label = comment[i+1])
+            self.tot_l=len(y_array)
+            s_y=range(self.tot_l)
+            if (self.tot_l>max_nc):
+                fr_min=self.tot_l/max_nc
+                center=self.tot_l/2+1
+                
+                if not(hasattr(self, "slider_sel")) :
+                    pos_frame=Tk.Frame(self.top)
+                    pos_frame.pack(side = Tk.LEFT,fill = Tk.BOTH,
+                                 anchor = Tk.W,pady = 15, ipady = 0)
+                    Tk.Label(pos_frame, text='Pos').pack(side = Tk.TOP)
+                    self.slider_pos = Tk.Scale(pos_frame, from_= 1, to=fr_min,       #
+                                               command= lambda x: self.replot(autoscale=False),   #variable= self.sh, 
+                                               orient=Tk.VERTICAL)  
+                    self.slider_pos.set(center)
+                    self.slider_pos.pack(side = Tk.TOP, fill = Tk.BOTH,
+                                   anchor = Tk.N,pady = 15, ipady = 0, expand=1)
+                if not(hasattr(self, "slider_zom")) :
+                    zom_frame=Tk.Frame(self.top)
+                    zom_frame.pack(side = Tk.LEFT,fill = Tk.BOTH,
+                                 anchor = Tk.W,pady = 15, ipady = 0)
+                    Tk.Label(zom_frame, text='Zoom').pack(side = Tk.TOP)
+                    self.slider_zom = Tk.Scale(zom_frame, from_= 1, to=fr_min,       #
+                                                     command= self.zoom_c,   #variable= self.sh, 
+                                                     orient=Tk.VERTICAL)
+                    self.slider_zom.pack(side = Tk.TOP,fill = Tk.BOTH,
+                                 anchor = Tk.W,pady = 15, ipady = 0, expand=1)
+            
+                s_y=range(center-max_nc/2*fr_min-1,center+max_nc/2*fr_min ,fr_min)
+            pass
+            
+            if not(hasattr(self, "slider")) and (self.tot_l>2):
+                sli_frame=Tk.Frame(self.top)
+                sli_frame.pack(side = Tk.LEFT,fill = Tk.BOTH,
+                             anchor = Tk.W,pady = 15, ipady = 0)
+                Tk.Label( sli_frame, text='Shift').pack(side = Tk.TOP)                
+                self.slider = Tk.Scale(sli_frame, from_= 0, to=100,       #
+                                                 command= self.replot,   #variable= self.sh, 
+                                                 orient=Tk.VERTICAL
+                                                 )
+                self.slider.pack(side = Tk.LEFT,fill = Tk.BOTH, 
+                                anchor = Tk.W,pady = 15, ipady = 0, expand=1)
+                self.scal_f=0    
+                    
+            self.curves = []  #,
+            for i in  s_y:
+                self.curves += self.figsub.plot(x_array[i], y_array[i], label = comment[i])
+            #print type(self.curves), '\n',self.curves    
        if ylabel:self.figsub.set_ylabel(ylabel, fontsize = 16)
        if xlabel:self.figsub.set_xlabel(xlabel, fontsize = 16)             
        if any(comment): 
             self.figsub.legend()
        if (title): self.figsub.set_title(title)
        self.toolbar.update()
-       self.step=max(y_array[0])-min(y_array[0])
-       self.figsub.set_ylim(ymin=(min(self.curves[0]._y)-self.step/10))
+       self.step=max(y_array[0])-abs(min(y_array[0]))
+       #self.figsub.set_ylim(ymin=(min(self.curves[0]._y)-self.step/10))
        self.figsub.set_autoscale_on(False)
        if len(self.curves)>1:
-           self.slider.configure(to = self.step, resolution =self.step/50)
+           self.slider.configure(resolution =1)
        self.fig.tight_layout()    
        self.canvas.draw()     
 
-       
-    def scale(self,event):
-       if  hasattr(self, "calcurves"):
-           for i,item in enumerate(self.calcurves):
-               item.set_ydata(array(self.ycalcurves[i]) + i*float(event))
-       if hasattr(self, "curves"):
-           for i,item in enumerate(self.curves):
-               item.set_ydata(array(self.ycurves[i]) + i*float(event))
-               
-           if len(self.curves)<10:
-               self.figsub.set_ylim(ymax = max(map(max,[item._y for item in self.curves]))
-                                +self.step/10)  
-           else:    
-               self.figsub.set_ylim(ymax = max(self.curves[-1]._y)+self.step/10)    
+
+    def zoom_c(self,event):
+        fr_min=self.tot_l/max_nc
+        mini=max_nc/2 +1 if max_nc%2 else max_nc/2
+        maxi=max_nc/2
+        """define slider_pos range"""
+        #ran_t= resid if resid<fr else self.tot_l-cover
+        sfrom= float(event)*mini
+        sto=  self.tot_l-(float(event)*maxi)
+        self.slider_pos.configure(from_=sfrom, to=sto)
+        self.replot(autoscale=False)
+        
+        
+    def replot(self, scale=None, autoscale=True):
+        if not(scale is None):  self.scal_f = float(scale)/200*self.step
+        if (self.tot_l>max_nc):
+            freq=self.slider_zom.get()
+            pos=self.slider_pos.get()
+            #print 'pos freq',pos, freq
+            s_y=range(pos-max_nc/2*freq-1,pos+max_nc/2*freq ,freq)
+        else:
+            s_y=range(self.tot_l)
+        if  hasattr(self, "calcurves"):
+           for i,item in zip(s_y,self.calcurves):
+               item.set_ydata(array(self.ycalcurves[i]) + s_y.index(i)*float(self.scal_f))
+        if hasattr(self, "curves"):
+           for i,item in zip(s_y,self.curves):
+               item.set_ydata(array(self.ycurves[i]) + s_y.index(i)*float(self.scal_f))
+           self.figsub.relim()
+           if autoscale:
+               self.figsub.autoscale(enable=True, axis='y', tight=False)
+           #self.figsub.autoscale_view(tight=None, scalex=False, scaley=True)
            self.canvas.draw()
-       else: pass
+        else: 
+            pass
+
 
                
     def clear(self):
@@ -595,7 +711,7 @@ class ParamGraph:
         self.xattr, self.yattr= xattr, yattr
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master = genitore)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  genitore)
+        self.toolbar = CustomNavToll(self.canvas,  genitore, self)
         self.toolbar.update()
         self.toolbar.pack(side=Tk.TOP, fill=Tk.X, expand=0)        
         self.canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
@@ -630,8 +746,8 @@ class ParamGraph:
         self.curves=[] 
         for item in self.yattr:
             self.curves += self.figsub.plot(
-                                 getattr(self.plotting_list[num], self.xattr),
-                                 getattr(self.plotting_list[num], item), label=item)
+                             getattr(self.plotting_list[num], self.xattr),
+                             getattr(self.plotting_list[num], item), label=item)
         
         xmax = max(getattr(self.plotting_list[num], self.xattr))
         xmin= min(getattr(self.plotting_list[num], self.xattr))    
@@ -739,7 +855,7 @@ class ParamGraph_multi(Graph,ParamGraph):
         #self.top.protocol("WM_DELETE_WINDOW", self.topcallback)
         self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master = genitore)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  genitore)
+        self.toolbar = CustomNavToll(self.canvas,  genitore, self)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
