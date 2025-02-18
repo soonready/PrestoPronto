@@ -150,19 +150,19 @@ def dat_Truncate(Data,before=None,after=None,ind=0,direction="Column"):
         
         """
         if (before or after)== None:
-            raise ValueError, (
-                   '  any limit defined for truncation')
+            raise ValueError((
+                   '  any limit defined for truncation'))
         if (before > after):
             if after ==None: pass
             else:
-                raise ValueError, (
+                raise ValueError((
                    '  before= %f bigger than after = %f any value remain!')  %(
-                               before, after)
+                               before, after))
 
         if direction=="Row" or direction=="Column":
                     pass
-        else: raise ValueError, (
-                       ' direction = string with value Column or Row,')
+        else: raise ValueError((
+                       ' direction = string with value Column or Row,'))
         
         if  isinstance(Data,list):
             sbefore= bisect.bisect_left(Data[ind],before)
@@ -245,7 +245,7 @@ def dspa_A_change(E,dold,dnew,Edge,shift=0.0):
     Egede enrgy that should not change
     addition shift in angle (optional)
     """
-    print dold, dnew, Edge, shift
+    print(dold, dnew, Edge, shift)
     shift= E2T(Edge, dnew)-E2T(Edge, dold)+shift
     E = T2E((E2T(E, dold) + shift),dnew)
     return E
@@ -439,7 +439,7 @@ def rebin(data, eColumn=1, Eo=0, before= 30, after=20, pstep=5, xstep=.5, kstep=
         pgrid = scipy.arange(Min, startx , pstep)
         if pgrid[-1] > startx - xstep:                              #da rivedere
             pgrid = pgrid[:-1]    
-            print "WARNING  preedge and xanes step similar" 
+            print("WARNING  preedge and xanes step similar") 
             
         Ecros= Eo+(0.256*xstep/kstep)**2    
         if Ecros>startk: startk=Ecros+.5
@@ -474,9 +474,9 @@ def rebin(data, eColumn=1, Eo=0, before= 30, after=20, pstep=5, xstep=.5, kstep=
                 newData[where] += data[i]
                 binCounts[where] += 1
             except:
-                print where
-                print binE.shape
-                print newData.shape
+                print(where)
+                print(binE.shape)
+                print(newData.shape)
                 return
         # check that all of the bins contain data
         for i in range(0, newData.shape[0]):        

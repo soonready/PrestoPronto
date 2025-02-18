@@ -29,8 +29,8 @@
 import tkinter.ttk
 import tkinter as Tk
 import tkinter.filedialog
-import bm29
 import os
+import numpy as np
 from numpy import savetxt, array, column_stack
 __singlefile__ = True
 from scipy import interpolate
@@ -66,6 +66,19 @@ def string_range(string):
     return select
 
 
+def openSinglefile(filename):
+    buffero = np.loadtxt(filename).T
+    x_array = buffero[0]
+    spectra = [generic(x_array, i) for i in buffero[1:]]
+    return spectra
+
+
+class generic():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
 def save_singlefile(x_array,y_array,comment=None, tit="Save  as..."):
     radix = tkinter.filedialog.asksaveasfilename(title=tit)
     data=datalize(x_array[0],*y_array)
@@ -76,32 +89,36 @@ def datalize(*arg):
     return column_stack((arg))
     #return transpose((vstack((arg))))
 
-def filewrite(filename,  newdata, comment=None, footers=None,fmt='%1.10f '):
-        """function to write a bm29 file, define a series of array with the same name
-        of column defined in the file
-        """
-        if os.path.exists(filename):
-            filename += ".1"
-        outFile = open(filename, 'w')
-        if comment is None:
-           savetxt(outFile, newdata, fmt=fmt)
-        else:
-           outFile.writelines(comment)
-           savetxt(outFile, newdata, fmt=fmt)#%1.10f %1.8f %1.8f %d  %d %d %d %d
-        if  not(footers is None):
-            outFile.writelines(footers)
-        outFile.close
-        return
+
+def filewrite(filename, newdata, comment=None, footers=None, fmt='%1.10f '):
+    """function to write a bm29 file, define a series of array with the same name
+    of column defined in the file
+    """
+    if os.path.exists(filename):
+        filename += ".1"
+    outFile = open(filename, 'w')
+    if comment is None:
+        savetxt(outFile, newdata, fmt=fmt)
+    else:
+        outFile.writelines(comment)
+        savetxt(outFile, newdata, fmt=fmt)  # %1.10f %1.8f %1.8f %d  %d %d %d %d
+    if not(footers is None):
+        outFile.writelines(footers)
+    outFile.close
+    return
+
 
 def browse_single():
-        filenames = tkinter.filedialog.askopenfilename()   ###-defaultextension extension
-        #print filenames
-        return filenames
+    filenames = tkinter.filedialog.askopenfilename()   # -defaultextension extension
+    # print filenames
+    return filenames
+
+
 def browse_multiple():
-        filenames = tkinter.filedialog.askopenfilenames()   ###-defaultextension extension
-        filenames = Tk._default_root.tk.splitlist(filenames)
-        filenames = sorted(filenames)   ### take care with the indents
-        return filenames
+    filenames = tkinter.filedialog.askopenfilenames()   # ##-defaultextension extension
+    filenames = Tk._default_root.tk.splitlist(filenames)
+    filenames = sorted(filenames)   # ## take care with the indents
+    return filenames
 ###################################################################################################
 class Browse_Directory:
     def __init__(self, genitore, title_text="open all file in directory", singlefile=0):
@@ -150,22 +167,23 @@ class Browse_file:
     def browse_command(self):
         self.filenames = []
         if self.singlefile:
-            filenames = tkinter.filedialog.askopenfilename()   ###
+            filenames = tkinter.filedialog.askopenfilename()
             print(filenames, type(filenames))
             self.filenames.append(filenames)
         else:
             filenames = tkinter.filedialog.askopenfilenames()
             filenames = Tk._default_root.tk.splitlist(filenames)
             self.filenames = sorted(filenames)
-        self.spectra =[]
+        self.spectra = []
         try:
             for i in self.filenames:
                 self.spectra.append(bm29.bm29file(i, All_Column=self.All_Column))
-        except  bm29.FileFormatError as e:
+        except bm29.FileFormatError as e:
             for i in self.filenames:
                 self.spectra.append(bm29.disperati(i))
-        if self.singlefile or (len(self.spectra)==1):
-            self.labelfiletext.set(self.spectra[0].name)
+        except:
+            if self.singlefile or (len(self.spectra) == 1):
+                self.labelfiletext.set(self.spectra[0].name)
         else:
             self.labelfiletext.set(self.spectra[0].name+" ...... "+self.spectra[-1].name)
         os.chdir(os.path.dirname(self.filenames[0]))
@@ -210,11 +228,8 @@ class Browse_filename:
         os.chdir(os.path.dirname(self.filenames[0]))
 
 
-
-#####################################################################################################
-
-
-######################################################################################################
+# ####################################################################################################
+# #####################################################################################################
 class PloteSaveB():
     """a class that allows to create two buttton that create a plot or save a set of data
     the set of sata are three list or that contain
@@ -228,43 +243,43 @@ class PloteSaveB():
     legend: list with the string for the legend
     error define if z is a list of error or an another set of y
     """
+
     def __init__(self, genitore, x_array=[], y_array=[], z_array=[],
-                 ext=".dat" ,comment= None,  title=None
-                 ,error=False, legend=None, xlabel=None, ylabel=None):
-        self.error=error
-        self.x_array= x_array
-        self.y_array= y_array
-        self.z_array= z_array
-        self.comments= comment
-        self.title  = title
+                 ext=".dat", comment=None, title=None,
+                 error=False, legend=None, xlabel=None, ylabel=None):
+        self.error = error
+        self.x_array = x_array
+        self.y_array = y_array
+        self.z_array = z_array
+        self.comments = comment
+        self.title = title
         self.ext = ext
-        self.xlabel=xlabel
-        self.ylabel=ylabel
-        self.legend=None
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.legend = None
         if (comment) is None:
             self.comments = [None for i in x_array]
         self.Button_plot = Tk.Button(genitore,
-                              command = self.plot,
-                              text = "Plots",
-                              background = "violet",
-                              width = 7,
-                              padx = "3m",
-                              pady = "2m")
-        self.Button_plot.pack(side = Tk.LEFT, padx = 5, pady =5, anchor = Tk.W)
+                                     command=self.plot,
+                                     text="Plots",
+                                     background="violet",
+                                     width=7,
+                                     padx="3m",
+                                     pady="2m")
+        self.Button_plot.pack(side=Tk.LEFT, padx=5, pady=5, anchor=Tk.W)
         self.Button_save = Tk.Button(genitore,
-                              command = self.save,
-                              text = "Save",
-                              background = "violet",
-                              width = 7,
-                              padx = "3m",
-                              pady = "2m")
-        self.Button_save.pack(side = Tk.LEFT, padx = 5, pady =5, anchor = Tk.W)
-
+                                     command=self.save,
+                                     text="Save",
+                                     background="violet",
+                                     width=7,
+                                     padx="3m",
+                                     pady="2m")
+        self.Button_save.pack(side=Tk.LEFT, padx=5, pady=5, anchor=Tk.W)
 
     def save(self):
         if len(self.x_array)>1:
             if not(__singlefile__):
-                tit = "Save  as...namefile000n."+self.ext
+                tit="Save  as...namefile000n."+self.ext
                 radix = tkinter.filedialog.asksaveasfilename(title=tit)
                 for i in range(len(self.x_array)):
                     if self.z_array:   data=datalize(self.x_array[i],self.y_array[i],
@@ -305,26 +320,27 @@ class PloteSaveB():
             filewrite(radix,  data, self.comments[0])
 
     def plot(self, title=None):
-        comment=self.legend
-        if title==None:title= self.title
-        if self.x_array==[]:
+        comment = self.legend
+        if title is None:
+            title = self.title
+        if self.x_array == []:
             raise ValueError("\n \n array not defined, press perform \n\n")
-        if self.y_array==[]:
+        if self.y_array == []:
             raise ValueError("\n \n array not defined, press perform\n\n")
         if self.error:
             self.graph = Graph(self.title)
             self.graph.errorbar(self.x_array, self.y_array,
-                                    self.z_array, title= self.title,comment= comment,
-                                    xlabel=self.xlabel, ylabel=self.ylabel)
+                                self.z_array, title=self.title, comment=comment,
+                                xlabel=self.xlabel, ylabel=self.ylabel)
 
         else:
             self.graph = Graph(self.title)
             if self.z_array:
-                self.graph.plot(self.x_array, self.z_array, title= self.title)
-            if len(self.x_array)==1 and len(self.y_array)>1:
-                self.x_array=self.x_array*len(self.x_array)
+                self.graph.plot(self.x_array, self.z_array, title=self.title)
+            if len(self.x_array) == 1 and len(self.y_array) > 1:
+                self.x_array = self.x_array * len(self.x_array)
             self.graph.plot(self.x_array, self.y_array, comment=comment,
-                            xlabel=self.xlabel, ylabel=self.ylabel,title=title)
+                            xlabel=self.xlabel, ylabel=self.ylabel, title=title)
 
 
 #######################################################################################################
@@ -377,67 +393,69 @@ class LabelCheck():
         self.Label = Tk.Label(self.LabFr, text= SLtext)
         self.Label.pack(**labelpack)
 
-#######################################################################################################
-class Browsefile_plot(PloteSaveB,Browse_filename):
+# ######################################################################################################
+
+
+class Browsefile_plot(PloteSaveB, Browse_filename):
     """
     define a method in wich browse and open a single file, adding a button to plot
     """
-    def __init__(self, genitore, title_text="open file", singlefile=0,title="",
-                       xlabel=None, ylabel=None, legend=None):
-        self.title=title
-        self.singlefile=singlefile
+
+    def __init__(self, genitore, title_text="open file", singlefile=0, title="",
+                 xlabel=None, ylabel=None, legend=None):
+        self.title = title
+        self.singlefile = singlefile
         self.mioGenitore = genitore
         self.filenames = list()
-        self.legend=legend
-        self.xlabel=xlabel
-        self.ylabel=ylabel
+        self.legend = legend
+        self.xlabel = xlabel
+        self.ylabel = ylabel
         # 'quadro_totale'
-        self.quadro1=  Tk.Frame(genitore)
-        self.quadro1.pack(side = Tk.TOP, expand = Tk.YES, fill = Tk.X , anchor = Tk.N,
-                              ipadx = 5, ipady = 5)
-        #-----------------------pulsant browse ------------------------------------
-        self.quadro_Br= Tk.Frame(self.quadro1)
-        self.quadro_Br.pack(side = Tk.LEFT, expand = Tk.YES, fill = Tk.X , anchor = Tk.W,
-                                  ipadx = 5, ipady = 5)
-        self.fse= Browse_filename(self.quadro_Br, title_text="open file", singlefile=1)
-        self.fse.pulsanteA.configure(command= self.browse_command2)
+        self.quadro1 = Tk.Frame(genitore)
+        self.quadro1.pack(side=Tk.TOP, expand=Tk.YES, fill=Tk.X, anchor=Tk.N,
+                          ipadx=5, ipady=5)
+        # -----------------------pulsant browse ------------------------------------
+        self.quadro_Br = Tk.Frame(self.quadro1)
+        self.quadro_Br.pack(side=Tk.LEFT, expand=Tk.YES, fill=Tk.X, anchor=Tk.W,
+                            ipadx=5, ipady=5)
+        self.fse = Browse_filename(self.quadro_Br, title_text="open file", singlefile=1)
+        self.fse.pulsanteA.configure(command=self.browse_command2)
 
-        #-----------------------pulsant plot-----------------------------------------
-        self.quadro_Bu= Tk.Frame(self.quadro1 )
-        self.quadro_Bu.pack(side = Tk.RIGHT, expand = Tk.NO, fill = Tk.X , anchor = Tk.W,
-                              ipadx = 5, ipady = 7)
+        # -----------------------pulsant plot-----------------------------------------
+        self.quadro_Bu = Tk.Frame(self.quadro1)
+        self.quadro_Bu.pack(side=Tk.RIGHT, expand=Tk.NO, fill=Tk.X, anchor=Tk.W,
+                            ipadx=5, ipady=7)
         self.Button_plot = Tk.Button(self.quadro_Bu,
-                              command = self.plot,
-                              text = "Plots",
-                              background = "violet",
-                              width = 7,
-                              padx = "3m",
-                              pady = "2m")
-        self.Button_plot.pack(side = Tk.RIGHT, padx = 5, pady =5, anchor = Tk.W)
-        self.error=False
-        self.z_array=False
-
-
-
+                                     command=self.plot,
+                                     text="Plots",
+                                     background="violet",
+                                     width=7,
+                                     padx="3m",
+                                     pady="2m")
+        self.Button_plot.pack(side=Tk.RIGHT, padx=5, pady=5, anchor=Tk.W)
+        self.error = False
+        self.z_array = False
 
     def browse_command2(self):
         self.fse.browse_command()
-        self.spectra=bm29.openSinglefile(self.fse.filenames[0])
-        self.x_array=[item.x for item in self.spectra]
-        self.y_array=[item.y for item in self.spectra]
+        self.spectra = openSinglefile(self.fse.filenames[0])
+        self.x_array = [item.x for item in self.spectra]
+        self.y_array = [item.y for item in self.spectra]
+
 
 class Browsefile_plot_mono(Browsefile_plot):
     def plot(self, title=None):
-        comment=self.legend
-        if title==None:title= self.title
-        if self.x_array==[]:
+        comment = self.legend
+        if title is None:
+            title = self.title
+        if self.x_array == []:
             raise ValueError("\n \n array not defined, press perform \n\n")
-        if self.y_array==[]:
+        if self.y_array == []:
             raise ValueError("\n \n array not defined, press perform\n\n")
         if self.error:
-                    self.graph = Graph(self.title)
-                    self.graph.errorbar(self.x_array, self.y_array,
-                                        self.z_array,title= self.title)
+            self.graph = Graph(self.title)
+            self.graph.errorbar(self.x_array, self.y_array,
+                                self.z_array, title=self.title)
         else:
             self.graph = Graph(self.title)
             self.graph.plot([self.x_array[0]], [self.y_array[0]], comment=comment, title=title)
@@ -451,27 +469,41 @@ class Browsefile_plot_mono(Browsefile_plot):
 
 import matplotlib
 matplotlib.interactive(False)
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, cursors
+
+
+# from matplotlib.backends.backend_tkagg import FigureCanvasTk, NavigationToolbar2Tk, cursors
+# #from matplotlib.widgets import Cursor as cursor
 from matplotlib.backend_bases import key_press_handler
+
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.backend_tools import Cursors
+
+# Implement the default Matplotlib key bindings.
+from matplotlib.backend_bases import key_press_handler
+from matplotlib.figure import Figure
+
+
+
+
 
 
 class Graph:
-    def __init__(self,title=None):
-        #self.sh = Tk.StringVar()
+    def __init__(self, title=None):
+        # self.sh = Tk.StringVar()
         self.top = Tk.Toplevel()
         self.top.title(title)
-        #self.top.protocol("WM_DELETE_WINDOW", self.topcallback)
-        self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
-        self.canvas = FigureCanvasTkAgg(self.fig, master = self.top)
-        self.canvas.show()
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  self.top)
+        # self.top.protocol("WM_DELETE_WINDOW", self.topcallback)
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.top)
+        self.canvas.draw()
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.top)
         self.toolbar.update()
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.figsub = self.fig.add_subplot(111)
         # to enable logaritmic plotinser the next two line
         self.canvas.mpl_connect("key_press_event", self.on_key)
-        #self.log=0
+        # self.log=0
 
     def on_key(self,event):
         """to change scale from linear to logaritm
@@ -584,162 +616,157 @@ class ParamGraph:
     xattr= string that defining the attribute in wich is contained the abscissa
     yattr= list of strin defining the attributes for ordinates
     """
+
     def __init__(self, genitore, plotting_list, xattr, yattr,
-                  xlabel=None,ylabel=None):
+                 xlabel=None, ylabel=None):
         """yxattr  list of string rappresenting attributes
            xattr just a string
         """
-        self.xlabel=xlabel
-        self.ylabel=ylabel
+        self.xlabel = xlabel
+        self.ylabel = ylabel
         self.plotting_list = plotting_list
-        self.xattr, self.yattr= xattr, yattr
-        self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
-        self.canvas = FigureCanvasTkAgg(self.fig, master = genitore)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  genitore)
+        self.xattr, self.yattr = xattr, yattr
+        self.fig = matplotlib.figure.Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=genitore)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, genitore)
         self.toolbar.update()
         self.toolbar.pack(side=Tk.TOP, fill=Tk.X, expand=0)
         self.canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
         self.canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
         self.figsub = self.fig.add_subplot(111)
-        if (len(plotting_list)>1):
-            self.slider = Tk.Scale(genitore, from_= 0, to=len(plotting_list)-1,
-                                         command =self.panor,
-                                         orient=Tk.HORIZONTAL,
-                                         label= "Spectra from 0 to n-1"
-                                         )
-            self.slider.pack(side = Tk.TOP,fill = Tk.X, anchor = Tk.N,pady = 5, ipady = 0)
+        if (len(plotting_list) > 1):
+            self.slider = Tk.Scale(genitore, from_=0, to=len(plotting_list) - 1,
+                                   command=self.panor,
+                                   orient=Tk.HORIZONTAL,
+                                   label="Spectra from 0 to n-1"
+                                   )
+            self.slider.pack(side=Tk.TOP, fill=Tk.X, anchor=Tk.N, pady=5, ipady=0)
 
         pass
 
-
-
-
-
     def clear(self):
         self.figsub.clear()
-        if hasattr(self, "curves"): del self.curves
+        if hasattr(self, "curves"):
+            del self.curves
         self.canvas.draw()
 
-
-
-
-
-    def plot(self,num):
+    def plot(self, num):
         """ycalcurves"""
-        self.num=num
-        self.curves=[]
+        self.num = num
+        self.curves = []
         for item in self.yattr:
-            self.curves += self.figsub.plot(
-                                 getattr(self.plotting_list[num], self.xattr),
-                                 getattr(self.plotting_list[num], item), label=item)
+            self.curves += self.figsub.plot(getattr(self.plotting_list[num], self.xattr),
+                                            getattr(self.plotting_list[num], item),
+                                            label=item)
 
         xmax = max(getattr(self.plotting_list[num], self.xattr))
-        xmin= min(getattr(self.plotting_list[num], self.xattr))
-        self.figsub.set_xlim((xmin-(xmax-xmin)*0.04),(xmax+(xmax-xmin)*0.04))
+        xmin = min(getattr(self.plotting_list[num], self.xattr))
+        self.figsub.set_xlim((xmin - (xmax - xmin) * 0.04), (xmax + (xmax - xmin) * 0.04))
         self.figsub.legend()
         try:
-            maxy=max(list(map(max,[getattr(item, self.yattr[0]) for item in self.plotting_list])))
-            miny=min(list(map(min,[getattr(item, self.yattr[0]) for item in self.plotting_list])))
+            maxy = max([max(getattr(item, self.yattr[0])) for item in self.plotting_list])
+            miny = min([min(getattr(item, self.yattr[0])) for item in self.plotting_list])
         except:
-            maxy=max(getattr(self.plotting_list[num], self.yattr[0]))
-            miny=min(getattr(self.plotting_list[num], self.yattr[0]))
-        step= abs(maxy-miny)*.1
-        self.figsub.set_ylim(ymax = maxy+step,ymin=miny-step)
-        if self.ylabel:self.figsub.set_ylabel(self.ylabel)
-        if self.xlabel:self.figsub.set_xlabel(self.xlabel)
+            maxy = max(getattr(self.plotting_list[num], self.yattr[0]))
+            miny = min(getattr(self.plotting_list[num], self.yattr[0]))
+        step = abs(maxy - miny) * .1
+        self.figsub.set_ylim(ymax=maxy + step, ymin=miny - step)
+        if self.ylabel:
+            self.figsub.set_ylabel(self.ylabel)
+        if self.xlabel:
+            self.figsub.set_xlabel(self.xlabel)
 
-
-    def paramplot(self,param,color=None, keys=None):
-        self.param=param
-        self.keys=keys
-        self.parmlines=[]
-        if keys:self.keystxt=[]
-        if color==None:
-            color=["r"]*len(param)
-        elif len(color)!=len(param):
-            color=["r"]*len(param)
-        for i,item in enumerate(self.param):
-            self.parmlines.append(self.figsub.axvline(item, c=color[i],  picker=5))
+    def paramplot(self, param, color=None, keys=None):
+        self.param = param
+        self.keys = keys
+        self.parmlines = []
+        if keys:
+            self.keystxt = []
+        if color is None:
+            color = ["r"] * len(param)
+        elif len(color) != len(param):
+            color = ["r"] * len(param)
+        for i, item in enumerate(self.param):
+            self.parmlines.append(self.figsub.axvline(item, c=color[i], picker=25))
             if keys:
                 self.keystxt.append(self.figsub.text(x=item, y=max(self.curves[0]._y),
-                                                     s=" "+self.keys[i], fontsize=12, color=color[i]))
-        self.pick=self.canvas.mpl_connect('pick_event', self.onpick)
-        self.release=self.canvas.mpl_connect('button_release_event', self.onrelease)
-        self.mov_link=self.canvas.mpl_connect('motion_notify_event', self.onmoving)
-        self.press=False
+                                                     s=" " + self.keys[i],
+                                                     fontsize=12, color=color[i]))
+        self.pick = self.canvas.mpl_connect('pick_event', self.onpick)
+        self.release = self.canvas.mpl_connect('button_release_event', self.onrelease)
+        self.mov_link = self.canvas.mpl_connect('motion_notify_event', self.onmoving)
+        self.press = False
 
-
-
-    def onpick(self,event_p):
+    def onpick(self, event_p):
         'on button press we will see if the mouse is over us and store some data'
-        #print "ci sono passato", event_p.artist
+        # print "ci sono passato", event_p.artist
         if not(event_p.artist in self.parmlines):
-            #print "non buono"
+            print("non buono")
             return True
         else:
-            cursors.POINTER=0
-            self.param_num= self.parmlines.index(event_p.artist)
-            #self.mov_link=self.canvas.mpl_connect('motion_notify_event', self.onmoving)
-            self.press=True
+            self.press = True
+            self.param_num = self.parmlines.index(event_p.artist)
+            self.canvas.set_cursor(Cursors.RESIZE_HORIZONTAL)
+            # cursors.POINTER=0
+
+            # self.mov_link=self.canvas.mpl_connect('motion_notify_event', self.onmoving)
+
             return True
 
-
-    def onmoving(self,event_p):
+    def onmoving(self, event_p):
         if self.press:
-            #print "sto usando il classico"
-            self.param[self.param_num]=event_p.xdata
+            self.param[self.param_num] = event_p.xdata
             self.panor(self.num)
 
     def onrelease(self,event_r):
-        cursors.POINTER=1
+        self.canvas.set_cursor(Cursors.POINTER)
         #print "for him is disconnecte"
         #self.canvas.mpl_disconnect(self.mov_link)
-        self.press=False
+        self.press = False
         #except: pass
 
-
-
-    def panor(self,event):
+    def panor(self, event):
         """
         refresh for event of slider
         """
-        self.num=int(event)
+
+        self.num = int(event)
         if hasattr(self, "curves"):
-            for i,item in enumerate(self.curves):
+            for i, item in enumerate(self.curves):
                 item.set_xdata(getattr(self.plotting_list[self.num], self.xattr))
                 item.set_ydata(getattr(self.plotting_list[self.num], self.yattr[i]))
         if hasattr(self, "parmlines"):
-            for i,item in enumerate(self.parmlines):
+            for i, item in enumerate(self.parmlines):
                 item.set_xdata(self.param[i])
                 if self.keys:
                     self.keystxt[i].set_position((float(self.param[i]), max(self.curves[0]._y)))
         self.fig.tight_layout()
         self.canvas.draw()
+        self.canvas.set_cursor(Cursors.RESIZE_HORIZONTAL)
+
+        # self.figsub.set_ylabel(ylabel, fontsize = 8)
+        # self.figsub.set_xlabel(xlabel, fontsize = 8)
+        # if any(comment):
+        #     self.figsub.legend()
+        # if (title): self.figsub.set_title(title)
+        # self.toolbar.update()
+        # self.step=max(y_array[0])-min(y_array[0])
+        # self.figsub.set_ylim(ymin=(min(self.curves[0]._y)-self.step/5))
+        # self.canvas.draw()
+        #
+        # if len(self.curves)>1:
+        #    self.slider.configure(to = self.step, resolution =self.step/100)
 
 
-
-       #self.figsub.set_ylabel(ylabel, fontsize = 8)
-       #self.figsub.set_xlabel(xlabel, fontsize = 8)
-       #if any(comment):
-       #     self.figsub.legend()
-       #if (title): self.figsub.set_title(title)
-       #self.toolbar.update()
-       #self.step=max(y_array[0])-min(y_array[0])
-       #self.figsub.set_ylim(ymin=(min(self.curves[0]._y)-self.step/5))
-       #self.canvas.draw()
-       #
-       #if len(self.curves)>1:
-       #    self.slider.configure(to = self.step, resolution =self.step/100)
-
-class ParamGraph_multi(Graph,ParamGraph):
+class ParamGraph_multi(Graph, ParamGraph):
     """more curve on the same paramGraph
     """
-    def __init__(self,genitore,title=None):
+    def __init__(self, genitore, title=None):
         #self.sh = Tk.StringVar()
         #self.top.protocol("WM_DELETE_WINDOW", self.topcallback)
-        self.fig = matplotlib.figure.Figure(figsize=(5,4), dpi=100)
-        self.canvas = FigureCanvasTkAgg(self.fig, master = genitore)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas,  genitore)
+        self.fig = matplotlib.figure.Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=genitore)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, genitore)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)
         self.canvas._tkcanvas.pack(side=Tk.LEFT, fill=Tk.BOTH, expand=1)

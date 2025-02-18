@@ -60,7 +60,7 @@ import numpy.linalg as linalg
 
 def varimax( x, normalize=True, positive=True, tol=1e-10, max_it=1000): #
     if len(x.shape)!=2:
-        raise ValueError, 'AMAT must be 2-dimensional'
+        raise ValueError('AMAT must be 2-dimensional')
     elif len(x.shape)==2:     
         p,nc= x.shape
         if normalize:
@@ -82,7 +82,7 @@ def varimax( x, normalize=True, positive=True, tol=1e-10, max_it=1000): #
         d2 = d
         d= sum(S)
         if d< d2*(1+tol): 
-            print "varimax done in ", i , " iteration"  
+            print("varimax done in ", i , " iteration")  
             break
 
     x= dot(x,TT)

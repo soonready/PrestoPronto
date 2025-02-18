@@ -59,10 +59,10 @@ class PCA():
         U,V,C=np.linalg.svd(self.D, full_matrices=False)
         
         if np.trapz(U[:,0])<0:
-            print "U negativo"
+            print("U negativo")
             self.C, self.U =-C,-U
         else:
-            print "U positivo"
+            print("U positivo")
             self.C, self.U =C,U
         self.R=np.dot(self.U,np.diag(V))    
         self.V=V**2
@@ -203,27 +203,27 @@ class PCA():
                 self.Needle=np.dot(self.Needle,self.P)       #cycle 
                 self.Needle=self.refine(self.Needle)         #impose constrain
                 if conv()<lim_con:
-                    print "out 1, iteration" ,i
-                    print "criteria", conv(), "limit", lim_con
+                    print("out 1, iteration" ,i)
+                    print("criteria", conv(), "limit", lim_con)
                     break
                 if i>1001:  
-                    print "criteria", conv(), "limit", lim_con
-                    print "error convergence not reached after 1000 cycles"
+                    print("criteria", conv(), "limit", lim_con)
+                    print("error convergence not reached after 1000 cycles")
                     break
                 pass    
             j+=1   
-            print j
+            print(j)
             if np.amax(np.fabs(self.Needle-norm_C(self.Needle)))<0.01:
                 self.Needle=norm_C(self.Needle)
                 break
             if j>3:
-                    print "normalization criteria not reached ",np.amax(np.fabs(self.Needle-norm_C(self.Needle)))
-                    print "error convergence not reached after 1000 cycles"
+                    print("normalization criteria not reached ",np.amax(np.fabs(self.Needle-norm_C(self.Needle))))
+                    print("error convergence not reached after 1000 cycles")
                     break
             else:
                 self.Needle=norm_C(self.Needle)
                 self.Needle=self.refine(self.Needle)  
-                print self.Needle-norm_C(self.Needle)
+                print(self.Needle-norm_C(self.Needle))
                 
         pass    
             #if abs(1-np.average(np.sum(self.Needle,0)))>0.001:
@@ -236,7 +236,7 @@ class PCA():
         #pass
                 
         self.Cr_t=self.Needle
-        print "\nnormalization done"
+        print("\nnormalization done")
         self.Cr_t=norm_C(self.Cr_t)
         
         # calculation of R matrix

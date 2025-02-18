@@ -62,7 +62,7 @@ def SimplicityG(Y):
 
 def varimax(x, normalize=True,  tol=1e-10, maxit=1000):    #positive=True,
     if len(x.shape)!=2:
-        raise ValueError, 'AMAT must be 2-dimensional'
+        raise ValueError('AMAT must be 2-dimensional')
     elif len(x.shape)==2:     
         row, column = x.shape
         if normalize:
@@ -109,7 +109,7 @@ def varimax(x, normalize=True,  tol=1e-10, maxit=1000):    #positive=True,
         g = SimplicityG(Y);
 
         if abs(G_old - g)<tol:
-            print "\nvarimax converged at iteration n.", it,"\n"
+            print("\nvarimax converged at iteration n.", it,"\n")
             if G_old<g:           # if the previous solution was better
                  Y = YY;           #% report the previous one
             else:                  
